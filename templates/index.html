@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouse Command - Digital Twin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">WD</span>
+      <div>
+        <h1>Warehouse Command</h1>
+        <p class="sub">Legacy vs Modern digital twin &middot; v{{ version }}</p>
+      </div>
+    </div>
+    <div class="disclaimer">Synthetic, seeded data. Heuristics on NP-hard problems. Not a real facility.</div>
+  </header>
+
+  <main>
+    <section class="kpis" id="kpis">
+      <div class="tile">
+        <div class="tile-label">Container fill rate</div>
+        <div class="tile-value"><span id="k-fill-new">{{ headline.ffd_fill_pct }}</span>%</div>
+        <div class="tile-delta">from {{ headline.naive_fill_pct }}% &middot; {{ headline.containers_saved }} containers saved</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Pick-travel reduction</div>
+        <div class="tile-value">-<span>{{ headline.travel_reduction_pct }}</span>%</div>
+        <div class="tile-delta">optimized slotting vs alphabetical</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Order cycle time</div>
+        <div class="tile-value">-<span>{{ headline.cycle_time_reduction_pct }}</span>%</div>
+        <div class="tile-delta">{{ headline.legacy_cycle_s }}s &rarr; {{ headline.modern_cycle_s }}s (sim)</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Picker travel (sim)</div>
+        <div class="tile-value">-<span>{{ headline.sim_travel_reduction_pct }}</span>%</div>
+        <div class="tile-delta">{{ headline.orders_completed }} orders / shift</div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card map-card">
+        <div class="card-head">
+          <h2>Warehouse map</h2>
+          <div class="toggle">
+            <button id="btn-legacy" class="active">Legacy layout</button>
+            <button id="btn-optimized">Optimized layout</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="dot dot-a"></i> A (fast)</span>
+          <span><i class="dot dot-b"></i> B (medium)</span>
+          <span><i class="dot dot-c"></i> C (slow)</span>
+          <span class="legend-note">Slots near dispatch are on the left. Optimized layout pulls A-movers forward.</span>
+        </div>
+        <div id="map" class="map"></div>
+        <div id="map-tip" class="map-tip">Hover a slot for detail.</div>
+      </section>
+
+      <section class="card scan-card">
+        <div class="card-head"><h2>Scan a carton</h2></div>
+        <form id="scan-form" class="scan-form">
+          <label>SKU <input name="sku" value="SKU-0000"></label>
+          <div class="dims">
+            <label>L (cm) <input name="length" type="number" step="0.1" value="40"></label>
+            <label>W (cm) <input name="width" type="number" step="0.1" value="30"></label>
+            <label>H (cm) <input name="height" type="number" step="0.1" value="25"></label>
+            <label>kg <input name="weight" type="number" step="0.1" value="6"></label>
+          </div>
+          <button type="submit">Recommend placement</button>
+        </form>
+        <div id="scan-result" class="scan-result">Enter a carton and submit.</div>
+      </section>
+
+      <section class="card reshuffle-card">
+        <div class="card-head"><h2>Re-shuffle plan</h2></div>
+        <div id="reshuffle-summary" class="reshuffle-summary">Loading...</div>
+        <div class="table-wrap"><table id="reshuffle-table"><thead><tr><th>SKU</th><th>From</th><th>To</th></tr></thead><tbody></tbody></table></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>All figures are from a synthetic, deterministic run. Methods: FFD + CP-SAT packing,
+       linear-assignment slotting, hand-rolled discrete-event simulation. Offline, no CDNs.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
