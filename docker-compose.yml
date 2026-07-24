@@ -1,0 +1,13 @@
+services:
+  warehouse-twin:
+    build: .
+    image: logistics-digital-twin:latest
+    container_name: logistics-digital-twin
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/api/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
