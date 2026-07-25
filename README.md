@@ -13,6 +13,8 @@ over an 8-hour shift), then runs the same demand through two operating regimes a
   orders one at a time with a round trip to dispatch for every line.
 - **Modern** - velocity-based slotting, 3D bin-packing consolidation, and batched picking routes.
 
+![Warehouse Command dashboard — KPI tiles, the legacy-vs-optimized warehouse map, the scan-a-carton panel and the re-shuffle plan](docs/img/warehouse-command.png)
+
 > **Everything here is synthetic and deterministic.** There is no real customer or facility data
 > anywhere - the numbers come from seeded generators (`seed=42`), so anyone who runs this gets the
 > exact figures below. Bin packing and slotting are NP-hard; I use heuristics and report the
