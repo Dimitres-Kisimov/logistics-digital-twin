@@ -124,5 +124,5 @@ Matplotlib, Flask/Jinja2, openpyxl, pandas. No SimPy - the simulation is a plain
 
 ## License
 
-MIT, (c) 2026 Dimitres Kisimov. All code, data generators, and graphics are original - see
+© 2026 Dimitres Kisimov — all rights reserved; published for portfolio review. See LICENSE. All code, data generators, and graphics are original - see
 [`CREDITS.md`](CREDITS.md).

@@ -1,6 +1,7 @@
 # Credits
 
-All assets in this repository are original work by Dimitres Kisimov.
+All assets in this repository are original work by Dimitres Kisimov — © 2026 Dimitres Kisimov,
+all rights reserved.
 
 - **Code**: written from scratch for this project (Python package `logitwin`, Flask app, tests).
 - **Data**: 100% synthetic and deterministic (seeded generators in `logitwin/data.py`). No real
