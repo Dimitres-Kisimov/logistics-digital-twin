@@ -69,6 +69,9 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .slot-rect:hover { opacity: .75; }
 .slot-rect:focus { outline: none; stroke: var(--ink); stroke-width: 2.5; }
 .slot-rect.hl { stroke: var(--amber); stroke-width: 3; }
+.slot-rect.chg { stroke: var(--amber); stroke-width: 2.5; stroke-dasharray: 4 2; }
+.slot-rect.dim { opacity: .35; }
+.diff-note { font-size: 12px; color: var(--amber); margin-bottom: 8px; }
 .aisle-label { fill: var(--muted); font-size: 11px; }
 .dispatch-label { fill: var(--teal); font-size: 12px; font-weight: 700; }
 .map-tip { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 20px; }
@@ -80,7 +83,7 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
   border-radius: 8px; padding: 8px; font-size: 14px;
 }
 .dims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.scan-form button, .reshuffle-card button {
+.scan-form button, .reshuffle-card button, .import-card button {
   background: var(--teal); color: #06251f; border: none; border-radius: 8px;
   padding: 10px; font-weight: 700; cursor: pointer; font-size: 14px;
 }
@@ -110,6 +113,19 @@ th { color: var(--muted); position: sticky; top: 0; background: var(--panel); }
 #reshuffle-table tbody tr.sel { background: var(--panel-2); outline: 1px solid var(--amber); }
 #reshuffle-table tbody tr.cycle-start td { border-top: 2px solid var(--line); }
 #reshuffle-table tbody tr.beyond { opacity: .35; }
+
+.import-card { grid-column: 1 / -1; }
+.import-hint { font-size: 12px; color: #7f8b98; margin: 0 0 10px; }
+.import-hint code { color: var(--ink); font-size: 11px; }
+.import-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.import-form label { font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.import-form input[type="file"] {
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 8px; padding: 7px; font-size: 13px; max-width: 280px;
+}
+.import-form button, #btn-reset-data { padding: 8px 14px; font-size: 13px; }
+.import-status { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.import-assumptions { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #7f8b98; }
 
 footer { padding: 18px 22px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); text-align: center; }
 

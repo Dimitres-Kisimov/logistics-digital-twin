@@ -5,7 +5,8 @@
 const VEL_COLOR = { A: "#2a9d8f", B: "#e9a03b", C: "#6b7a8d", "-": "#33414f" };
 let SLOTS = [];
 let PLAN = null; // /api/reshuffle payload (sequence, savings, headline numbers)
-let mode = "legacy"; // or "optimized"
+let SOURCE = { synthetic: true, n_skus: 60 }; // /api/health "source" (synthetic vs imported data)
+let mode = "legacy"; // or "optimized" / "diff"
 const HILITE = new Set(); // slot ids highlighted from the re-shuffle table
 
 async function getJSON(url, opts) {
@@ -40,6 +41,8 @@ function renderMap() {
   const w = padL + maxPer * (cell + gap) + 20;
   const h = padT + aisles * (cell + gap) + 20;
 
+  // "diff" colours by the optimized layout but outlines the slots whose occupant changes.
+  const isDiff = mode === "diff";
   const key = mode === "legacy" ? "legacy_velocity" : "optimized_velocity";
   const skuKey = mode === "legacy" ? "legacy_sku" : "optimized_sku";
 
@@ -57,10 +60,23 @@ function renderMap() {
     const y = padT + s.aisle * (cell + gap);
     const color = VEL_COLOR[s[key]] || VEL_COLOR["-"];
     const hl = HILITE.has(s.id) ? " hl" : "";
-    const label = `Slot ${s.code}, ${s[skuKey] || "empty"}, velocity ${s[key]}, ${s.distance} m from dispatch`;
-    svg += `<rect class="slot-rect${hl}" x="${x}" y="${y}" width="${cell}" height="${cell}" rx="5" fill="${color}" `
+    const changed = s.legacy_sku !== s.optimized_sku;
+    // In diff mode, changed slots read "old -> new" in tooltips and aria-labels.
+    let skuTxt = s[skuKey] || "empty";
+    let velTxt = s[key];
+    let diffCls = "";
+    if (isDiff) {
+      diffCls = changed ? " chg" : " dim";
+      if (changed) {
+        skuTxt = `${s.legacy_sku || "empty"} -> ${s.optimized_sku || "empty"}`;
+        velTxt = `${s.legacy_velocity} -> ${s.optimized_velocity}`;
+      }
+    }
+    const what = isDiff ? (changed ? "changes occupant: " : "unchanged: ") : "";
+    const label = `Slot ${s.code}, ${what}${skuTxt}, velocity ${velTxt}, ${s.distance} m from dispatch`;
+    svg += `<rect class="slot-rect${hl}${diffCls}" x="${x}" y="${y}" width="${cell}" height="${cell}" rx="5" fill="${color}" `
       + `tabindex="0" role="img" aria-label="${label}" data-id="${s.id}" data-code="${s.code}" `
-      + `data-sku="${s[skuKey]}" data-vel="${s[key]}" data-dist="${s.distance}" data-aisle="${s.aisle}"/>`;
+      + `data-sku="${skuTxt}" data-vel="${velTxt}" data-dist="${s.distance}" data-aisle="${s.aisle}"/>`;
   });
   for (let a = 0; a < aisles; a++) {
     const y = padT + a * (cell + gap) + cell / 2 + 4;
@@ -76,6 +92,16 @@ function renderMap() {
     r.addEventListener("focus", () => show(r));      // keyboard (Tab)
     r.addEventListener("click", () => show(r));      // tap / click
   });
+
+  const note = document.getElementById("diff-note");
+  if (isDiff) {
+    const n = SLOTS.filter(s => s.legacy_sku !== s.optimized_sku).length;
+    note.textContent = `${n} of ${SLOTS.length} slots change occupant during the re-slot `
+      + `(dashed amber outline); dimmed slots keep their SKU.`;
+    note.hidden = false;
+  } else {
+    note.hidden = true;
+  }
 }
 
 function highlightSlots(ids) {
@@ -103,7 +129,8 @@ function exportCsv() {
   const blob = new Blob([csv], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "reshuffle-plan-synthetic.csv";
+  // Honest filename: says whether the plan came from the synthetic catalog or imported data.
+  a.download = PLAN.synthetic ? "reshuffle-plan-synthetic.csv" : "reshuffle-plan-imported.csv";
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -184,10 +211,19 @@ async function loadReshuffle() {
 }
 
 function bindToggle() {
-  const bl = document.getElementById("btn-legacy");
-  const bo = document.getElementById("btn-optimized");
-  bl.addEventListener("click", () => { mode = "legacy"; bl.classList.add("active"); bo.classList.remove("active"); renderMap(); });
-  bo.addEventListener("click", () => { mode = "optimized"; bo.classList.add("active"); bl.classList.remove("active"); renderMap(); });
+  const btns = {
+    legacy: document.getElementById("btn-legacy"),
+    optimized: document.getElementById("btn-optimized"),
+    diff: document.getElementById("btn-diff"),
+  };
+  Object.entries(btns).forEach(([m, b]) => {
+    b.addEventListener("click", () => {
+      mode = m;
+      Object.values(btns).forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      renderMap();
+    });
+  });
 }
 
 function bindScan() {
@@ -226,7 +262,8 @@ function bindScan() {
       } else if (!r.sku) {
         html += `<div class="row"><span>Re-slot</span><span>n/a (no SKU entered)</span></div>`;
       } else if (!r.sku_known) {
-        html += `<div class="row"><span>Re-slot</span><span>unknown SKU (not in the 60-SKU synthetic catalog)</span></div>`;
+        const kind = SOURCE.synthetic ? "synthetic" : "imported";
+        html += `<div class="row"><span>Re-slot</span><span>unknown SKU (not in the ${SOURCE.n_skus}-SKU ${kind} catalog)</span></div>`;
       } else {
         html += `<div class="row"><span>Re-slot</span><span>none (already in its optimal slot)</span></div>`;
       }
@@ -238,9 +275,39 @@ function bindScan() {
   });
 }
 
+function bindImport() {
+  const form = document.getElementById("import-form");
+  const status = document.getElementById("import-status");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    status.textContent = "Importing and re-optimizing (packing + slotting + simulation)...";
+    try {
+      const res = await fetch("/api/import", { method: "POST", body: new FormData(form) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "HTTP " + res.status);
+      // The KPI tiles and data-source banner are server-rendered, so reload to pick them up.
+      location.reload();
+    } catch (err) {
+      status.textContent = "Import failed: " + err.message;
+    }
+  });
+  const reset = document.getElementById("btn-reset-data");
+  if (reset) {
+    reset.addEventListener("click", async () => {
+      try {
+        await fetch("/api/reset", { method: "POST" });
+      } finally {
+        location.reload();
+      }
+    });
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   bindToggle();
   bindScan();
+  bindImport();
+  getJSON("/api/health").then(h => { if (h.source) SOURCE = h.source; }).catch(() => {});
   loadSlots().catch(e => { document.getElementById("map").textContent = "Failed to load slots: " + e.message; });
   loadReshuffle().catch(() => {});
 });

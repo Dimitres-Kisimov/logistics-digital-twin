@@ -1,5 +1,14 @@
+import io
+
 from logitwin.analysis import full_report, headline_numbers
 from logitwin.exports import build_excel, build_pdf
+
+
+def _sku_master_bytes(n=10):
+    lines = ["sku,length_cm,width_cm,height_cm,weight_kg,velocity"]
+    for i in range(n):
+        lines.append(f"WID-{i:03d},{20 + i},{15 + i},{10 + i},{1.5 + i},{('A', 'B', 'C')[i % 3]}")
+    return ("\n".join(lines) + "\n").encode()
 
 
 def test_full_report_is_deterministic():
@@ -138,6 +147,89 @@ def test_flask_reshuffle_serves_executable_sequence():
     assert abs(sum(s["saving_m_day"] for s in seq) - body["travel_saved_m_day"]) < 0.5
     # The tie-broken plan is no longer a full re-slot: some SKUs stay put.
     assert body["n_moves"] < 60
+
+
+def test_flask_import_roundtrip_and_reset():
+    from app import app
+
+    client = app.test_client()
+    try:
+        res = client.post(
+            "/api/import",
+            data={"sku_csv": (io.BytesIO(_sku_master_bytes(10)), "my-skus.csv")},
+            content_type="multipart/form-data",
+        )
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["ok"] is True
+        assert body["synthetic"] is False
+        assert body["n_skus"] == 10
+        # The synthetic-geometry assumptions are always disclosed on an import.
+        assert any("rack geometry" in a for a in body["source"]["assumptions"])
+
+        health = client.get("/api/health").get_json()
+        assert health["synthetic"] is False
+        assert health["source"]["filename"] == "my-skus.csv"
+
+        # The whole dashboard now serves the imported catalog.
+        slots = client.get("/api/slots").get_json()
+        assert slots["synthetic"] is False
+        assert len(slots["slots"]) == 10
+        skus = {s["legacy_sku"] for s in slots["slots"]}
+        assert "WID-000" in skus and "SKU-0000" not in skus
+
+        reshuffle = client.get("/api/reshuffle").get_json()
+        assert reshuffle["synthetic"] is False
+        assert all(m["sku"].startswith("WID-") for m in reshuffle["moves"])
+
+        scan = client.post(
+            "/api/scan", json={"sku": "wid-000", "length": 20, "width": 15, "height": 10, "weight": 2}
+        ).get_json()
+        assert scan["sku_known"] is True
+        assert scan["sku"] == "WID-000"
+        # The synthetic catalog's SKUs are now unknown.
+        scan = client.post(
+            "/api/scan", json={"sku": "SKU-0000", "length": 20, "width": 15, "height": 10, "weight": 2}
+        ).get_json()
+        assert scan["sku_known"] is False
+
+        # The page banner reflects the imported source honestly.
+        html = client.get("/").get_data(as_text=True)
+        assert "my-skus.csv" in html
+        assert "Synthetic, seeded data" not in html
+    finally:
+        res = client.post("/api/reset")
+        assert res.status_code == 200
+
+    health = client.get("/api/health").get_json()
+    assert health["synthetic"] is True
+    assert len(client.get("/api/slots").get_json()["slots"]) == 60
+
+
+def test_flask_import_rejects_bad_csv_and_keeps_state():
+    from app import app
+
+    client = app.test_client()
+    # No file at all.
+    assert client.post("/api/import", data={}, content_type="multipart/form-data").status_code == 400
+    # Missing columns.
+    res = client.post(
+        "/api/import",
+        data={"sku_csv": (io.BytesIO(b"sku,length_cm\nX,10\n"), "bad.csv")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 400
+    assert "missing column" in res.get_json()["error"]
+    # Too few SKUs.
+    res = client.post(
+        "/api/import",
+        data={"sku_csv": (io.BytesIO(_sku_master_bytes(3)), "tiny.csv")},
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 400
+    # A failed import never leaves the app in a half-imported state.
+    health = client.get("/api/health").get_json()
+    assert health["synthetic"] is True
 
 
 def test_flask_index_serves_offline_page():
