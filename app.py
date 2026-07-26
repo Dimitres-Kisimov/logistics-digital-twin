@@ -24,6 +24,19 @@ app = Flask(__name__)
 _REPORT = full_report()
 _HEADLINE = headline_numbers(_REPORT)
 
+# Slot id -> human-readable location code (warehouse staff navigate by aisle/bay/level, not ids).
+_SLOT_BY_ID = {sl.id: sl for sl in _REPORT["dataset"]["warehouse"].slots}
+# Canonical catalog SKUs (uppercase key) so /api/scan can tell "unknown SKU" from "no move needed".
+_SKU_CANON = {c.sku.upper(): c.sku for c in _REPORT["dataset"]["cartons"]}
+
+
+def _slot_code(slot_id: int) -> str:
+    """Human-readable Aisle-Bay-Level code for a slot id, e.g. ``A1-B2-L0``."""
+    sl = _SLOT_BY_ID.get(slot_id)
+    if sl is None:
+        return f"slot {slot_id}"
+    return f"A{sl.aisle + 1}-B{sl.bay + 1}-L{sl.level}"
+
 
 def _slots_payload() -> list[dict]:
     """Slot geometry + velocity class of the SKU assigned under legacy and optimized layouts."""
@@ -39,6 +52,7 @@ def _slots_payload() -> list[dict]:
         out.append(
             {
                 "id": sl.id,
+                "code": _slot_code(sl.id),
                 "aisle": sl.aisle,
                 "bay": sl.bay,
                 "level": sl.level,
@@ -75,7 +89,16 @@ def slots():
 @app.route("/api/reshuffle")
 def reshuffle():
     s = _REPORT["slotting"]
-    moves = [{"sku": m.sku, "from_slot": m.from_slot, "to_slot": m.to_slot} for m in s["moves"]]
+    moves = [
+        {
+            "sku": m.sku,
+            "from_slot": m.from_slot,
+            "from_code": _slot_code(m.from_slot),
+            "to_slot": m.to_slot,
+            "to_code": _slot_code(m.to_slot),
+        }
+        for m in s["moves"]
+    ]
     return jsonify(
         {
             "n_moves": s["n_moves"],
@@ -98,42 +121,73 @@ def scan():
         weight = float(data.get("weight", 0))
     except (TypeError, ValueError):
         return jsonify({"error": "invalid numeric input"}), 400
+    if length <= 0 or width <= 0 or height <= 0:
+        return jsonify({"error": "carton dimensions must be positive numbers (cm)"}), 400
+    if weight < 0:
+        return jsonify({"error": "carton weight cannot be negative"}), 400
     sku = str(data.get("sku", "")).strip()
+    # Case-insensitive catalog lookup: 'sku-0000' matches 'SKU-0000'.
+    canonical = _SKU_CANON.get(sku.upper())
+    sku_known = canonical is not None
+    if sku_known:
+        sku = canonical
 
     container = Container()
-    fits = length <= container.length and width <= container.width and height <= container.height
+    fits_dims = length <= container.length and width <= container.width and height <= container.height
+    over_weight = weight > container.max_weight
+    # A carton is only shippable in a standard container if BOTH dims and weight are within limits;
+    # never recommend a container for an overweight carton.
+    shippable = fits_dims and not over_weight
     vol = length * width * height
     fill_if_alone = 100.0 * vol / container.volume if container.volume else 0.0
 
-    # A tiny live pack: place this carton with a couple of representative cartons to show a slot.
-    from logitwin.data import Carton
-
-    probe = Carton(id=999999, sku=sku or "PROBE", length=length, width=width, height=height, weight=weight, velocity="B")
-    packed = ffd_pack([probe], container)
+    # A tiny live pack for shippable cartons only, to show a concrete placement.
     placement = None
-    if packed.containers and packed.containers[0].placements:
-        pl = packed.containers[0].placements[0]
-        placement = {"x": pl.x, "y": pl.y, "z": pl.z, "container": 1}
+    if shippable:
+        from logitwin.data import Carton
+
+        probe = Carton(id=999999, sku=sku or "PROBE", length=length, width=width, height=height, weight=weight, velocity="B")
+        packed = ffd_pack([probe], container)
+        if packed.containers and packed.containers[0].placements:
+            pl = packed.containers[0].placements[0]
+            placement = {"x": pl.x, "y": pl.y, "z": pl.z, "container": 1}
 
     # Re-slot instruction if the SKU appears in the reshuffle plan.
     move = None
-    if sku:
+    if sku_known:
         for m in _REPORT["slotting"]["moves"]:
             if m.sku == sku:
-                move = {"from_slot": m.from_slot, "to_slot": m.to_slot}
+                move = {
+                    "from_slot": m.from_slot,
+                    "from_code": _slot_code(m.from_slot),
+                    "to_slot": m.to_slot,
+                    "to_code": _slot_code(m.to_slot),
+                }
                 break
+
+    if not fits_dims:
+        note = "Carton exceeds container dimensions - use oversize handling."
+    elif over_weight:
+        note = (
+            f"Carton exceeds the {container.max_weight:.0f} kg container weight limit - "
+            "split the load or use heavy-goods handling."
+        )
+    else:
+        note = "Consolidate with same-route picks into container 1 (FFD)."
 
     return jsonify(
         {
             "sku": sku,
-            "fits_container": fits,
+            "sku_known": sku_known,
+            "fits_container": shippable,
+            "fits_dimensions": fits_dims,
             "carton_volume_cm3": round(vol, 1),
             "fill_if_alone_pct": round(fill_if_alone, 2),
-            "recommended_container": 1 if fits else None,
+            "recommended_container": 1 if shippable else None,
             "placement": placement,
-            "over_weight": weight > container.max_weight,
+            "over_weight": over_weight,
             "reslot_instruction": move,
-            "note": "Consolidate with same-route picks into container 1 (FFD)." if fits else "Carton exceeds container dimensions - use oversize handling.",
+            "note": note,
         }
     )
 

@@ -41,13 +41,82 @@ def test_flask_kpis_and_slots_and_scan():
 
     slots = client.get("/api/slots").get_json()
     assert len(slots["slots"]) == 60
+    # Every slot carries a human-readable Aisle-Bay-Level code.
+    assert all(s["code"].startswith("A") and "-B" in s["code"] and "-L" in s["code"] for s in slots["slots"])
 
     res = client.post(
         "/api/scan",
         json={"sku": "SKU-0000", "length": 40, "width": 30, "height": 25, "weight": 6},
     )
     assert res.status_code == 200
-    assert res.get_json()["fits_container"] is True
+    body = res.get_json()
+    assert body["fits_container"] is True
+    assert body["sku_known"] is True
+    assert body["recommended_container"] == 1
+
+
+def test_flask_scan_overweight_never_recommends_a_container():
+    from app import app
+
+    client = app.test_client()
+    res = client.post(
+        "/api/scan",
+        json={"sku": "SKU-0001", "length": 40, "width": 30, "height": 25, "weight": 350},
+    )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["over_weight"] is True
+    assert body["fits_dimensions"] is True  # dims alone are fine
+    assert body["fits_container"] is False  # but the carton is NOT shippable
+    assert body["recommended_container"] is None
+    assert body["placement"] is None
+    assert "weight limit" in body["note"]
+
+
+def test_flask_scan_rejects_non_positive_dimensions():
+    from app import app
+
+    client = app.test_client()
+    # Negative dims.
+    res = client.post("/api/scan", json={"length": -5, "width": -3, "height": -2, "weight": 1})
+    assert res.status_code == 400
+    # Zero dims.
+    res = client.post("/api/scan", json={"length": 0, "width": 10, "height": 10, "weight": 1})
+    assert res.status_code == 400
+    # Empty body.
+    res = client.post("/api/scan", json={})
+    assert res.status_code == 400
+    # Negative weight.
+    res = client.post("/api/scan", json={"length": 10, "width": 10, "height": 10, "weight": -1})
+    assert res.status_code == 400
+
+
+def test_flask_scan_distinguishes_unknown_sku_and_matches_case_insensitively():
+    from app import app
+
+    client = app.test_client()
+    dims = {"length": 40, "width": 30, "height": 25, "weight": 6}
+    # Unknown SKU: flagged, not silently 'already optimal'.
+    body = client.post("/api/scan", json={"sku": "HVY-1", **dims}).get_json()
+    assert body["sku_known"] is False
+    assert body["reslot_instruction"] is None
+    # Lower-case typo of a real SKU still matches the catalog and the move plan.
+    body = client.post("/api/scan", json={"sku": "sku-0000", **dims}).get_json()
+    assert body["sku_known"] is True
+    assert body["sku"] == "SKU-0000"
+    assert body["reslot_instruction"] is not None
+    assert body["reslot_instruction"]["from_code"].startswith("A")
+
+
+def test_flask_reshuffle_moves_have_location_codes():
+    from app import app
+
+    client = app.test_client()
+    body = client.get("/api/reshuffle").get_json()
+    assert body["n_moves"] == len(body["moves"])
+    for m in body["moves"][:5]:
+        assert m["from_code"].startswith("A") and "-L" in m["from_code"]
+        assert m["to_code"].startswith("A") and "-L" in m["to_code"]
 
 
 def test_flask_index_serves_offline_page():
