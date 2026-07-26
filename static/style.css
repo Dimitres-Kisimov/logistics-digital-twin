@@ -67,6 +67,8 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .map svg { display: block; }
 .slot-rect { stroke: #0c141d; stroke-width: 1; cursor: pointer; transition: opacity .12s; }
 .slot-rect:hover { opacity: .75; }
+.slot-rect:focus { outline: none; stroke: var(--ink); stroke-width: 2.5; }
+.slot-rect.hl { stroke: var(--amber); stroke-width: 3; }
 .aisle-label { fill: var(--muted); font-size: 11px; }
 .dispatch-label { fill: var(--teal); font-size: 12px; font-weight: 700; }
 .map-tip { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 20px; }
@@ -89,10 +91,15 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .badge.move { background: rgba(233,160,59,.15); color: var(--amber); border: 1px solid var(--amber); }
 
 .reshuffle-summary { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.plan-caveat { font-size: 12px; color: #7f8b98; margin: 0 0 8px; }
+#btn-export-csv { padding: 6px 12px; font-size: 13px; }
 .table-wrap { max-height: 220px; overflow-y: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); position: sticky; top: 0; background: var(--panel); }
+#reshuffle-table tbody tr { cursor: pointer; }
+#reshuffle-table tbody tr:hover { background: var(--panel-2); }
+#reshuffle-table tbody tr.sel { background: var(--panel-2); outline: 1px solid var(--amber); }
 
 footer { padding: 18px 22px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); text-align: center; }
 
