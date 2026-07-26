@@ -79,7 +79,10 @@ def simulate(
         utilization = naive_pack(cartons).fill_rate
         batch_size = 1
     elif regime == "modern":
-        assignment = optimize_slotting(cartons, warehouse).assignment
+        # Same canonical optimized layout as the slotting report: tie-broken toward keeping SKUs
+        # in place, so the simulated layout is the one the re-shuffle plan actually produces.
+        legacy_assignment = legacy_slotting(cartons, warehouse).assignment
+        assignment = optimize_slotting(cartons, warehouse, prefer=legacy_assignment).assignment
         utilization = ffd_pack(cartons).fill_rate
         batch_size = MODERN_BATCH_SIZE
     else:

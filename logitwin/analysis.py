@@ -43,6 +43,8 @@ def headline_numbers(report: dict | None = None) -> dict:
         "travel_reduction_pct": round(s["reduction_pct"], 1),
         "break_even_days": round(s["break_even_days"], 1),
         "n_moves": s["n_moves"],
+        "n_steps": s["n_steps"],
+        "n_cycles": s["n_cycles"],
         "cycle_time_reduction_pct": round(sim["cycle_time_reduction_pct"], 1),
         "sim_travel_reduction_pct": round(sim["travel_reduction_pct"], 1),
         "legacy_cycle_s": round(sim["legacy"].mean_cycle_time_s, 1),
