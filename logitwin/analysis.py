@@ -45,7 +45,9 @@ def headline_numbers(report: dict | None = None) -> dict:
         "ffd_containers": p["ffd_containers"],
         "cpsat_gap_pct": round(p["cpsat_gap_pct"], 1),
         "travel_reduction_pct": round(s["reduction_pct"], 1),
-        "break_even_days": round(s["break_even_days"], 1),
+        # None (JSON null) when the plan saves no travel - there is no break-even day count then.
+        "break_even_days": round(s["break_even_days"], 1) if s["break_even_days"] is not None else None,
+        "no_moves": s["n_moves"] == 0,
         "n_moves": s["n_moves"],
         "n_steps": s["n_steps"],
         "n_cycles": s["n_cycles"],

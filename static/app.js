@@ -170,9 +170,32 @@ function applyWhatIf(k) {
   });
 }
 
+// Zero-move plans (e.g. an imported catalog whose layout is already optimal, or one where every
+// SKU shares a velocity class): say so honestly and retire the plan-only controls.
+function renderNoMoves() {
+  document.getElementById("reshuffle-summary").innerHTML =
+    "<b>0</b> SKUs need to move: the current layout already achieves the minimum demand-weighted "
+    + "pick travel for this catalog, so there is no re-shuffle plan and no break-even to compute.";
+  const exportBtn = document.getElementById("btn-export-csv");
+  exportBtn.disabled = true;
+  exportBtn.title = "Nothing to export - the plan has no moves";
+  const slider = document.getElementById("seq-slider");
+  slider.max = 0;
+  slider.value = 0;
+  slider.disabled = true;
+  document.getElementById("whatif-n").textContent = "0";
+  document.getElementById("whatif-readout").textContent =
+    "What-if does not apply: the plan has no steps to execute.";
+  document.querySelector("#reshuffle-table tbody").innerHTML = "";
+}
+
 async function loadReshuffle() {
   PLAN = await getJSON("/api/reshuffle");
   const data = PLAN;
+  if (data.no_moves || data.n_moves === 0) {
+    renderNoMoves();
+    return;
+  }
   // Same precision as the KPI tile (1 dp) so the number reads identically everywhere.
   const pct = Number(data.reduction_pct).toFixed(1);
   const parks = data.n_steps - data.n_moves;
@@ -309,5 +332,9 @@ window.addEventListener("DOMContentLoaded", () => {
   bindImport();
   getJSON("/api/health").then(h => { if (h.source) SOURCE = h.source; }).catch(() => {});
   loadSlots().catch(e => { document.getElementById("map").textContent = "Failed to load slots: " + e.message; });
-  loadReshuffle().catch(() => {});
+  loadReshuffle().catch(e => {
+    // Never leave the panel stuck on "Loading..." - say what went wrong.
+    document.getElementById("reshuffle-summary").textContent =
+      "Failed to load the re-shuffle plan: " + e.message;
+  });
 });

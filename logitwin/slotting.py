@@ -262,8 +262,11 @@ def slotting_report(
     # staging park-and-retrieve of each cycle) at move_cost_seconds.
     daily_saving_seconds = travel_saved / picker_speed_mps
     one_off_cost_seconds = len(sequence) * move_cost_seconds
+    # ``None`` when the plan saves no travel (e.g. an imported catalog whose current layout is
+    # already optimal, or one where every SKU shares a velocity class): a break-even day count
+    # does not exist, and ``float("inf")`` would serialize to the invalid JSON token ``Infinity``.
     break_even_days = (
-        one_off_cost_seconds / daily_saving_seconds if daily_saving_seconds > 0 else float("inf")
+        one_off_cost_seconds / daily_saving_seconds if daily_saving_seconds > 0 else None
     )
 
     # Verify the plan actually reaches the target layout.

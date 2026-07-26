@@ -12,6 +12,7 @@ synthetic dataset.
 
 from __future__ import annotations
 
+import math
 import sys
 import threading
 
@@ -28,6 +29,25 @@ from logitwin.packing import ffd_pack  # noqa: E402
 app = Flask(__name__)
 
 _MAX_CSV_BYTES = 2_000_000  # per uploaded file
+
+
+def _round_or_none(value: float | None, ndigits: int = 2) -> float | None:
+    """Round a number for a JSON payload; None/NaN/inf become None (JSON null).
+
+    Flask's jsonify would happily emit the bare tokens ``Infinity``/``NaN``, which are not valid
+    JSON and make strict clients (browser ``fetch().json()`` included) throw. Every numeric field
+    that can be undefined goes through this guard.
+    """
+    if value is None or not math.isfinite(value):
+        return None
+    return round(value, ndigits)
+
+
+def _json_safe(payload: dict) -> dict:
+    """Replace any non-finite float values in a flat dict with None so the JSON stays valid."""
+    return {
+        k: (None if isinstance(v, float) and not math.isfinite(v) else v) for k, v in payload.items()
+    }
 
 
 def _make_state(report: dict, source: dict) -> dict:
@@ -119,7 +139,9 @@ def health():
 
 @app.route("/api/kpis")
 def kpis():
-    return jsonify(_STATE["headline"])
+    # _json_safe is a belt-and-braces guard: headline_numbers already emits None for an undefined
+    # break-even, but no non-finite float must ever reach the wire as Infinity/NaN.
+    return jsonify(_json_safe(_STATE["headline"]))
 
 
 @app.route("/api/slots")
@@ -162,7 +184,10 @@ def reshuffle():
             "n_moves": s["n_moves"],
             "n_steps": s["n_steps"],
             "n_cycles": s["n_cycles"],
-            "break_even_days": round(s["break_even_days"], 2),
+            # No moves -> no travel saved -> no break-even day count exists; the flag lets the UI
+            # say so honestly instead of receiving invalid JSON (bare Infinity) and going blank.
+            "no_moves": s["n_moves"] == 0,
+            "break_even_days": _round_or_none(s["break_even_days"]),
             "reduction_pct": round(s["reduction_pct"], 2),
             "travel_saved_m_day": round(s["travel_saved"], 2),
             "synthetic": st["source"]["synthetic"],
