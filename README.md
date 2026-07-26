@@ -23,6 +23,17 @@ over an 8-hour shift), then runs the same demand through two operating regimes a
 > synthetic label then drops for the carton data, but the rack geometry and order stream stay
 > seeded synthetic, and the UI says so.
 
+## The app counterpart
+
+This repo is the **analysis engine** of a two-repo pair: exact optimization (Hungarian-algorithm
+slotting, a CP-SAT optimality proof on the small packing instance), discrete-event simulation, and
+CSV import for real SKU catalogs. Its interactive sibling is
+**[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** — the same warehouse
+levers (slotting, ABC velocity, pick travel, push vs pull) as a hands-on, game-like PWA you can
+play with in a browser. Use this engine for batch analysis and provable, reproducible numbers; use
+the app for intuition, teaching, and quick what-ifs. A shared layout-JSON format between the two is
+**planned**, not built — today the repos exchange no files.
+
 ## What the run measured
 
 From my seeded run (`python -m logitwin --summary`):
