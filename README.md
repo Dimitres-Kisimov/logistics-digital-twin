@@ -15,10 +15,13 @@ over an 8-hour shift), then runs the same demand through two operating regimes a
 
 ![Warehouse Command dashboard — KPI tiles, the legacy-vs-optimized warehouse map, the scan-a-carton panel and the re-shuffle plan](docs/img/warehouse-command.png)
 
-> **Everything here is synthetic and deterministic.** There is no real customer or facility data
-> anywhere - the numbers come from seeded generators (`seed=42`), so anyone who runs this gets the
-> exact figures below. Bin packing and slotting are NP-hard; I use heuristics and report the
-> measured optimality gap rather than claiming anything is provably optimal.
+> **Everything here is synthetic and deterministic by default.** There is no real customer or
+> facility data shipped anywhere - the numbers come from seeded generators (`seed=42`), so anyone
+> who runs this gets the exact figures below. Bin packing and slotting are NP-hard; I use heuristics
+> and report the measured optimality gap rather than claiming anything is provably optimal. The
+> dashboard can also load *your own* SKU master from CSV (see "Load your own data" below) - the
+> synthetic label then drops for the carton data, but the rack geometry and order stream stay
+> seeded synthetic, and the UI says so.
 
 ## What the run measured
 
@@ -85,8 +88,11 @@ python -m pytest -q
 A single-page "warehouse command" dashboard, all hand-built and fully offline (inline SVG + vanilla
 JS, no external libraries or fonts):
 
-- a **warehouse map** you can flip between the legacy and optimized layout, with slots coloured by
-  velocity class (the optimized view visibly pulls the A-movers toward dispatch);
+- a **warehouse map** you can flip between the legacy layout, the optimized layout, and a
+  **"Changes" diff view** that outlines (dashed amber) every slot whose occupant differs between the
+  two layouts and dims the rest - the weekend's physical scope at a glance, with a count line
+  ("N of M slots change occupant"); slots are coloured by velocity class and the optimized view
+  visibly pulls the A-movers toward dispatch;
 - a **"scan a carton"** panel - give it dimensions, weight, and an SKU and it returns a recommended
   container/placement plus, if that SKU is due to move, the re-slot instruction (overweight or
   oversize cartons get no container recommendation, and unknown SKUs are flagged as such);
@@ -94,7 +100,35 @@ JS, no external libraries or fonts):
 - a **re-shuffle plan** in execution order (every step lands in an empty spot; each cycle parks one
   carton in a "STAGE" position once), with human-readable Aisle-Bay-Level codes, click-a-row map
   highlighting, a CSV export of the step list, and a **what-if slider** that shows the share of the
-  travel saving captured by executing only the first N steps.
+  travel saving captured by executing only the first N steps;
+- a **"Load your data"** panel that swaps the whole dashboard onto your own SKU catalog (below).
+
+### Load your own data
+
+The dashboard ships on synthetic SKUs, but a re-slot decision has to be made on *your* catalog. The
+"Load your data" panel accepts:
+
+- a **SKU master CSV** (required): `sku,length_cm,width_cm,height_cm,weight_kg[,velocity]` with
+  velocity `A`/`B`/`C`, 8-500 rows, unique SKUs, positive dimensions;
+- an **order-lines CSV** (optional): `sku[,qty]`, one row per pick line. When attached, velocity
+  classes are derived from measured pick share (top 20% of SKUs = A, next 30% = B, rest = C - the
+  same split the synthetic generator uses) and any velocity column in the master is ignored.
+
+On import the same packing / slotting / simulation pipeline re-runs on your cartons, every KPI tile,
+map, scan lookup, and the re-shuffle plan switch to your data, and the banner flips from "synthetic"
+to naming your file. Stated honestly (and repeated in the UI as per-import assumptions):
+
+- the **rack geometry stays synthetic** - a seeded 6-aisle layout sized to your SKU count; slot
+  coordinates are not imported;
+- the **simulation replays a seeded synthetic order stream** weighted by the velocity classes; your
+  order timestamps are not replayed;
+- **slotting demand uses the A/B/C class weights** (40/12/3 picks/day), the same model as the
+  synthetic run, not per-SKU pick counts.
+
+Files are analysed in memory only and never written to disk, and the exported plan CSV renames
+itself `reshuffle-plan-imported.csv` so the two never get mixed up. "Reset to synthetic" restores
+the seeded dataset. The CLI deliverables (`python -m logitwin --deliverables`) always describe the
+synthetic run.
 
 ## Methods (and their honest limits)
 
