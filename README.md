@@ -29,8 +29,8 @@ From my seeded run (`python -m logitwin --summary`):
 | Container fill rate | 2.0% | 30.2% | consolidation from one carton/pallet to FFD |
 | Containers used | 60 | 4 | **56 fewer** |
 | Pick travel (slotting model) | baseline | optimized | **-44.2%** |
-| Order cycle time (simulation) | 662.7 s | 158.2 s | **-76.1%** |
-| Picker travel (simulation) | baseline | optimized | **-66.5%** |
+| Order cycle time (simulation) | 662.7 s | 158.0 s | **-76.2%** |
+| Picker travel (simulation) | baseline | optimized | **-67.2%** |
 
 Two honesty notes on those figures:
 
@@ -41,11 +41,15 @@ Two honesty notes on those figures:
   bins and CP-SAT proved 6 is optimal - a 0% gap on that instance**. That is a genuinely good result
   on a small case, not a claim that FFD is optimal in general (it is not).
 
-The re-slotting side also produces an actionable plan: **60 moves** to get from the legacy layout to
-the optimized one, breaking even in about **0.7 days** of saved picker time. Honest caveats, stated
-in the UI too: all 60 SKUs move (a full re-slot - the solver does not minimise the move count among
-equally good layouts), and the list is a simultaneous swap set sorted by SKU, not an execution
-sequence - executing it top-to-bottom needs a staging slot for targets that are still occupied.
+The re-slotting side also produces an executable plan: **36 SKUs move in 39 steps** (the other 24
+SKUs stay put - the optimizer breaks ties among equally good layouts toward keeping SKUs in place,
+verified to cost zero extra travel), breaking even in about **0.4 days** of saved picker time at the
+stated assumptions (120 s per step, 1.2 m/s picker). The steps are in true execution order: the rack
+is full, so the moves decompose into 3 cycles, each of which parks its first carton once in an
+off-rack staging position ("STAGE") - every step lands in a spot that is empty at that moment, and
+the staging position never holds more than one carton. Cycles run best-savings-first, and a what-if
+slider on the dashboard shows how much of the 44% saving the first N steps capture if you only have
+labour for a partial re-slot.
 
 ## How to run
 
@@ -87,8 +91,10 @@ JS, no external libraries or fonts):
   container/placement plus, if that SKU is due to move, the re-slot instruction (overweight or
   oversize cartons get no container recommendation, and unknown SKUs are flagged as such);
 - **KPI tiles** for fill rate, travel reduction, and the simulation's cycle-time / travel deltas;
-- a **re-shuffle plan** table with human-readable Aisle-Bay-Level codes, click-a-row map
-  highlighting, and a CSV export of the move list.
+- a **re-shuffle plan** in execution order (every step lands in an empty spot; each cycle parks one
+  carton in a "STAGE" position once), with human-readable Aisle-Bay-Level codes, click-a-row map
+  highlighting, a CSV export of the step list, and a **what-if slider** that shows the share of the
+  travel saving captured by executing only the first N steps.
 
 ## Methods (and their honest limits)
 
@@ -99,8 +105,11 @@ JS, no external libraries or fonts):
   general guarantee).
 - **Slotting** (`logitwin/slotting.py`) - assigning SKUs to slots to minimise demand-weighted travel
   is a balanced linear assignment problem, solved exactly with the Hungarian algorithm
-  (`scipy.optimize.linear_sum_assignment`). The optimum here is exact *for the one-SKU-per-slot
-  model*; real slotting has capacity, family, and congestion constraints this model omits.
+  (`scipy.optimize.linear_sum_assignment`). Ties among equally good layouts are broken toward
+  keeping SKUs in their current slot (an epsilon bias, verified against the unbiased optimum), and
+  the re-shuffle is sequenced cycle-by-cycle so it is physically executable with one staging
+  position. The optimum here is exact *for the one-SKU-per-slot model*; real slotting has capacity,
+  family, and congestion constraints this model omits.
 - **Discrete-event simulation** (`logitwin/simulate.py`) - hand-rolled with a `heapq` event queue
   (no SimPy). It is deterministic given the seed. The large cycle-time gap is partly a queueing
   effect: the legacy single-picker configuration runs close to capacity, so its wait times amplify

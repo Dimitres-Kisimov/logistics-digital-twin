@@ -33,9 +33,21 @@ linear assignment problem**, solved **exactly** by the Hungarian algorithm via
 `scipy.optimize.linear_sum_assignment`. The result is optimal *for this model*; real slotting adds
 slot-capacity, product-family, correlation, and congestion constraints that this abstraction omits.
 
+Because demand comes in only three velocity classes, many layouts tie for the optimum. Ties are
+broken **toward keeping each SKU in its current slot**: a tiny epsilon surcharge on every
+off-current cell makes the solver relocate a SKU only when the move buys real travel, and the biased
+solve is verified to reach the exact unbiased optimum (it is discarded otherwise). This cuts the
+plan from a full re-slot to only the moves that pay.
+
 The re-shuffle planner emits the minimal set of "move SKU from slot X to slot Y" instructions to turn
-a current layout into the optimized one (each mis-placed SKU moves exactly once), and prices the
-one-off move cost against the daily travel saving to report a **break-even in days**.
+a current layout into the optimized one (each mis-placed SKU moves exactly once), then orders them
+into an **executable sequence**: in a full warehouse the moves decompose into cycles of occupied
+slots, so each cycle parks its first carton in an off-rack staging position once, shifts the rest
+along the freed chain, and lands the staged carton last - `k` moves become `k + 1` steps, every step
+targets an empty spot, and the staging position never holds more than one carton. Cycles run in
+bang-for-buck order (net daily saving per step), so a partial execution banks the largest savings
+first. The one-off cost prices **every step** (including staging parks, 120 s/step assumed, picker
+speed 1.2 m/s) against the daily travel saving to report a **break-even in days**.
 
 ## 3. Discrete-event simulation (`logitwin/simulate.py`)
 

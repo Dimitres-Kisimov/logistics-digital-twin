@@ -35,7 +35,7 @@ Three well-understood levers, modelled explicitly:
 
 - Container fill rate **2.0% -> 30.2%**, containers **60 -> 4** (**56 fewer**).
 - Pick travel **-44.2%** (slotting model).
-- Order cycle time **662.7 s -> 158.2 s** (**-76.1%**); simulated picker travel **-66.5%**.
+- Order cycle time **662.7 s -> 158.0 s** (**-76.2%**); simulated picker travel **-67.2%**.
 - Heuristic quality check: FFD-1D matched the CP-SAT optimum (6 bins, **0% gap**) on the checked
   small instance.
 
@@ -48,8 +48,9 @@ ones before quoting.
   on a comparable batch is on the order of **EUR 840 per batch** - directional only.
 - *Estimate:* a 44-66% cut in picker travel converts, at a loaded labour rate of ~EUR 25/h, into
   meaningful recovered picker-hours per shift; the exact figure depends on volume.
-- The re-slotting itself is cheap to justify: the model's plan of **60 moves breaks even in ~0.7
-  days** of saved picker time.
+- The re-slotting itself is cheap to justify: the model's plan of **36 moves (39 executable steps
+  including staging) breaks even in ~0.4 days** of saved picker time, at the stated assumptions of
+  120 s per step and a 1.2 m/s picker.
 
 ## Stakeholders
 

@@ -68,7 +68,7 @@ def build_pdf(report: dict | None = None) -> bytes:
             f"Pick-travel (slotting): -{h['travel_reduction_pct']}%",
             f"Order cycle time (simulation): {h['legacy_cycle_s']}s  ->  {h['modern_cycle_s']}s  (-{h['cycle_time_reduction_pct']}%)",
             f"Picker travel (simulation): -{h['sim_travel_reduction_pct']}%",
-            f"Re-slotting break-even: {h['break_even_days']} days ({h['n_moves']} moves)",
+            f"Re-slotting break-even: {h['break_even_days']} days ({h['n_moves']} moves, {h['n_steps']} steps incl. staging)",
         ]
         y = 0.68
         fig.text(0.12, 0.73, "Headline gains (synthetic run)", fontsize=13, fontweight="bold", color=_NAVY)
@@ -177,20 +177,23 @@ def build_pdf(report: dict | None = None) -> bytes:
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.axis("off")
         ax.set_title("Re-Shuffle Plan Summary", fontsize=14, fontweight="bold", color=_NAVY, loc="left")
-        moves = s["moves"][:18]
+        steps = s["sequence"][:16]
         lines = [
-            f"Total moves to reach optimized layout: {s['n_moves']}",
-            f"One-off cost: {s['one_off_cost_seconds']:.0f} picker-seconds",
+            f"SKUs moved: {s['n_moves']} (ties broken toward keeping SKUs in place - only moves that buy travel)",
+            f"Executable steps: {s['n_steps']} in {s['n_cycles']} cycles (each cycle parks one carton off-rack once)",
+            f"One-off cost: {s['one_off_cost_seconds']:.0f} picker-seconds ({s['n_steps']} steps x 120 s/step assumption)",
             f"Daily saving: {s['daily_saving_seconds']:.0f} picker-seconds/day",
             f"Break-even: {s['break_even_days']:.1f} days",
-            f"Plan validated (current -> target): {s['plan_valid']}",
+            f"Plan validated (current -> target): {s['plan_valid']}; sequence validated (every step lands empty): {s['sequence_valid']}",
             "",
-            "First moves (SKU: from slot -> to slot):",
+            "Execution sequence, best-savings cycles first (STAGE = off-rack staging position):",
         ]
-        for m in moves:
-            lines.append(f"   {m.sku}:  slot {m.from_slot}  ->  slot {m.to_slot}")
-        if s["n_moves"] > len(moves):
-            lines.append(f"   ... and {s['n_moves'] - len(moves)} more")
+        for st in steps:
+            frm = "STAGE" if st.from_slot is None else f"slot {st.from_slot}"
+            to = "STAGE" if st.to_slot is None else f"slot {st.to_slot}"
+            lines.append(f"   {st.seq:>3}. {st.sku}:  {frm}  ->  {to}   (cycle {st.cycle})")
+        if s["n_steps"] > len(steps):
+            lines.append(f"   ... and {s['n_steps'] - len(steps)} more")
         ax.text(0.02, 0.92, "\n".join(lines), va="top", ha="left", fontsize=10, family="monospace")
         pdf.savefig(fig)
         plt.close(fig)
@@ -251,8 +254,11 @@ def build_excel(report: dict | None = None) -> bytes:
         ("Travel saved", round(s["travel_saved"], 2)),
         ("Reduction (%)", round(s["reduction_pct"], 2)),
         ("Moves in re-shuffle plan", s["n_moves"]),
+        ("Executable steps (incl. staging parks)", s["n_steps"]),
+        ("Cycles (staging parks needed)", s["n_cycles"]),
         ("Break-even (days)", round(s["break_even_days"], 2)),
         ("Plan validated", s["plan_valid"]),
+        ("Sequence validated (every step lands empty)", s["sequence_valid"]),
     ]:
         ws.append([k, v])
 
@@ -267,11 +273,19 @@ def build_excel(report: dict | None = None) -> bytes:
     ws.append(["Container utilization (%)", round(100 * lg.container_utilization, 1), round(100 * md.container_utilization, 1)])
     ws.append(["Makespan (s)", round(lg.makespan_s, 1), round(md.makespan_s, 1)])
 
-    # ReshufflePlan
+    # ReshufflePlan: the executable sequence (every step lands in an empty spot; STAGE is the
+    # off-rack staging position each cycle uses once).
     ws = wb.create_sheet("ReshufflePlan")
-    header(ws, ["SKU", "From slot", "To slot"])
-    for m in s["moves"]:
-        ws.append([m.sku, m.from_slot, m.to_slot])
+    header(ws, ["Seq", "SKU", "From slot", "To slot", "Cycle", "Saving (unit-m/day)"])
+    for st in s["sequence"]:
+        ws.append([
+            st.seq,
+            st.sku,
+            "STAGE" if st.from_slot is None else st.from_slot,
+            "STAGE" if st.to_slot is None else st.to_slot,
+            st.cycle,
+            round(st.saving, 2),
+        ])
 
     # Cartons catalog (the full synthetic dataset for transparency).
     ds = r["dataset"]
