@@ -42,7 +42,10 @@ Two honesty notes on those figures:
   on a small case, not a claim that FFD is optimal in general (it is not).
 
 The re-slotting side also produces an actionable plan: **60 moves** to get from the legacy layout to
-the optimized one, breaking even in about **0.7 days** of saved picker time.
+the optimized one, breaking even in about **0.7 days** of saved picker time. Honest caveats, stated
+in the UI too: all 60 SKUs move (a full re-slot - the solver does not minimise the move count among
+equally good layouts), and the list is a simultaneous swap set sorted by SKU, not an execution
+sequence - executing it top-to-bottom needs a staging slot for targets that are still occupied.
 
 ## How to run
 
@@ -81,9 +84,11 @@ JS, no external libraries or fonts):
 - a **warehouse map** you can flip between the legacy and optimized layout, with slots coloured by
   velocity class (the optimized view visibly pulls the A-movers toward dispatch);
 - a **"scan a carton"** panel - give it dimensions, weight, and an SKU and it returns a recommended
-  container/placement plus, if that SKU is due to move, the re-slot instruction;
+  container/placement plus, if that SKU is due to move, the re-slot instruction (overweight or
+  oversize cartons get no container recommendation, and unknown SKUs are flagged as such);
 - **KPI tiles** for fill rate, travel reduction, and the simulation's cycle-time / travel deltas;
-- a **re-shuffle plan** table.
+- a **re-shuffle plan** table with human-readable Aisle-Bay-Level codes, click-a-row map
+  highlighting, and a CSV export of the move list.
 
 ## Methods (and their honest limits)
 
