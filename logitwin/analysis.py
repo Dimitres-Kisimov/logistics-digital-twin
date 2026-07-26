@@ -9,9 +9,8 @@ from .simulate import simulation_report
 from .slotting import slotting_report
 
 
-def full_report(seed: int = SEED, n: int = 60) -> dict:
-    """Run every analysis on one seeded dataset and return a single dict."""
-    ds = dataset(seed=seed, n=n)
+def report_for_dataset(ds: dict, seed: int = SEED) -> dict:
+    """Run every analysis on an already-built dataset (synthetic or imported) and bundle it."""
     packing = packing_report(ds["cartons"], ds["container"])
     slotting = slotting_report(ds["cartons"], ds["warehouse"])
     simulation = simulation_report(ds["cartons"], ds["warehouse"], ds["orders"])
@@ -25,6 +24,11 @@ def full_report(seed: int = SEED, n: int = 60) -> dict:
         "slotting": slotting,
         "simulation": simulation,
     }
+
+
+def full_report(seed: int = SEED, n: int = 60) -> dict:
+    """Run every analysis on one seeded synthetic dataset and return a single dict."""
+    return report_for_dataset(dataset(seed=seed, n=n), seed=seed)
 
 
 def headline_numbers(report: dict | None = None) -> dict:
