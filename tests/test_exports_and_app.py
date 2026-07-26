@@ -1,4 +1,5 @@
 import io
+import json
 
 from logitwin.analysis import full_report, headline_numbers
 from logitwin.exports import build_excel, build_pdf
@@ -9,6 +10,25 @@ def _sku_master_bytes(n=10):
     for i in range(n):
         lines.append(f"WID-{i:03d},{20 + i},{15 + i},{10 + i},{1.5 + i},{('A', 'B', 'C')[i % 3]}")
     return ("\n".join(lines) + "\n").encode()
+
+
+def _one_class_sku_master_bytes(n=10):
+    """A catalog where every SKU shares one velocity class: every layout is equally good, the
+    tie-break keeps all SKUs in place, and the re-shuffle plan has 0 moves (travel_saved == 0)."""
+    lines = ["sku,length_cm,width_cm,height_cm,weight_kg,velocity"]
+    for i in range(n):
+        lines.append(f"ONE-{i:03d},{20 + i},{15 + i},{10 + i},{1.5 + i},A")
+    return ("\n".join(lines) + "\n").encode()
+
+
+def _strict_json(raw: str):
+    """json.loads with the bare tokens Infinity/-Infinity/NaN rejected (they are not valid JSON,
+    and browser fetch().json() throws on them - Python's default json.loads sneakily allows them)."""
+
+    def _reject(token):
+        raise AssertionError(f"response contains the non-JSON constant {token}")
+
+    return json.loads(raw, parse_constant=_reject)
 
 
 def test_full_report_is_deterministic():
@@ -204,6 +224,52 @@ def test_flask_import_roundtrip_and_reset():
     health = client.get("/api/health").get_json()
     assert health["synthetic"] is True
     assert len(client.get("/api/slots").get_json()["slots"]) == 60
+
+
+def test_flask_zero_move_plan_serves_strict_json_with_null_break_even():
+    """Regression: an import that needs 0 moves must never serialize break_even_days as the bare
+    token Infinity (invalid JSON that breaks fetch().json() and leaves the panel on Loading...)."""
+    from app import app
+
+    client = app.test_client()
+    try:
+        res = client.post(
+            "/api/import",
+            data={"sku_csv": (io.BytesIO(_one_class_sku_master_bytes(10)), "one-class.csv")},
+            content_type="multipart/form-data",
+        )
+        assert res.status_code == 200
+
+        raw = client.get("/api/reshuffle").get_data(as_text=True)
+        assert "Infinity" not in raw and "NaN" not in raw
+        body = _strict_json(raw)
+        assert body["n_moves"] == 0
+        assert body["no_moves"] is True
+        assert body["break_even_days"] is None
+        assert body["moves"] == [] and body["sequence"] == []
+
+        raw = client.get("/api/kpis").get_data(as_text=True)
+        assert "Infinity" not in raw and "NaN" not in raw
+        kpis = _strict_json(raw)
+        assert kpis["break_even_days"] is None
+        assert kpis["no_moves"] is True
+        assert kpis["n_moves"] == 0
+    finally:
+        assert client.post("/api/reset").status_code == 200
+
+
+def test_flask_normal_plan_still_reports_finite_break_even_and_flag():
+    """The synthetic catalog does need moves: break_even_days stays a finite number and the
+    no_moves flag reads False on both endpoints."""
+    from app import app
+
+    client = app.test_client()
+    body = _strict_json(client.get("/api/reshuffle").get_data(as_text=True))
+    assert body["no_moves"] is False
+    assert isinstance(body["break_even_days"], (int, float)) and body["break_even_days"] > 0
+    kpis = _strict_json(client.get("/api/kpis").get_data(as_text=True))
+    assert kpis["no_moves"] is False
+    assert isinstance(kpis["break_even_days"], (int, float)) and kpis["break_even_days"] > 0
 
 
 def test_flask_import_rejects_bad_csv_and_keeps_state():

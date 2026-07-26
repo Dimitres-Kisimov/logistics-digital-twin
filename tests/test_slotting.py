@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from logitwin.data import VELOCITY_DEMAND, make_cartons, make_warehouse
 from logitwin.slotting import (
     apply_moves,
@@ -60,6 +62,20 @@ def test_slotting_report_break_even_and_validity():
     assert rep["sequence_valid"] is True
     assert rep["reduction_pct"] > 0
     assert rep["break_even_days"] >= 0
+
+
+def test_slotting_report_zero_saving_yields_none_break_even_not_inf():
+    """All SKUs in one velocity class: every layout is equally good, the tie-break keeps everything
+    in place, and break_even_days must be None (JSON null) - never float('inf')."""
+    cartons = [replace(c, velocity="A") for c in make_cartons()]
+    wh = make_warehouse(n_slots=len(cartons))
+    rep = slotting_report(cartons, wh)
+    assert rep["n_moves"] == 0
+    assert rep["n_steps"] == 0
+    assert abs(rep["travel_saved"]) < 1e-9
+    assert rep["break_even_days"] is None
+    assert rep["plan_valid"] is True
+    assert rep["sequence_valid"] is True
 
 
 def test_prefer_tiebreak_keeps_exact_optimum_with_fewer_moves():
