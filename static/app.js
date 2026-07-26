@@ -4,7 +4,7 @@
 
 const VEL_COLOR = { A: "#2a9d8f", B: "#e9a03b", C: "#6b7a8d", "-": "#33414f" };
 let SLOTS = [];
-let MOVES = [];
+let PLAN = null; // /api/reshuffle payload (sequence, savings, headline numbers)
 let mode = "legacy"; // or "optimized"
 const HILITE = new Set(); // slot ids highlighted from the re-shuffle table
 
@@ -91,9 +91,14 @@ async function loadSlots() {
 }
 
 function exportCsv() {
-  if (!MOVES.length) return;
-  const header = "sku,from_slot,from_code,to_slot,to_code";
-  const rows = MOVES.map(m => [m.sku, m.from_slot, m.from_code, m.to_slot, m.to_code].join(","));
+  if (!PLAN || !PLAN.sequence.length) return;
+  const header = "seq,sku,from_slot,from_code,to_slot,to_code,cycle,saving_m_day";
+  const rows = PLAN.sequence.map(s => [
+    s.seq, s.sku,
+    s.from_slot === null ? "" : s.from_slot, s.from_code,
+    s.to_slot === null ? "" : s.to_slot, s.to_code,
+    s.cycle, s.saving_m_day,
+  ].join(","));
   const csv = header + "\n" + rows.join("\n") + "\n";
   const blob = new Blob([csv], { type: "text/csv" });
   const a = document.createElement("a");
@@ -103,31 +108,78 @@ function exportCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+function stepTitle(s) {
+  if (s.to_slot === null) return `park ${s.sku} in the staging position (frees slot ${s.from_slot})`;
+  if (s.from_slot === null) return `retrieve ${s.sku} from staging into slot ${s.to_slot}`;
+  return `slot ${s.from_slot} to slot ${s.to_slot} - click to highlight on map`;
+}
+
+// What-if: executing only the first k steps of the sequence. Savings are credited when a SKU
+// lands in its final slot, so the cumulative figure is exact for any prefix.
+function applyWhatIf(k) {
+  const seq = PLAN.sequence;
+  const n = seq.length;
+  document.getElementById("whatif-n").textContent = k === n ? `all ${n}` : `${k} of ${n}`;
+  let cum = 0, finals = 0, parked = 0;
+  for (let i = 0; i < k; i++) {
+    cum += seq[i].saving_m_day;
+    if (seq[i].to_slot === null) parked++;
+    else { finals++; if (seq[i].from_slot === null) parked--; }
+  }
+  const frac = PLAN.travel_saved_m_day > 0 ? cum / PLAN.travel_saved_m_day : 0;
+  const pctOfFull = (100 * frac).toFixed(0);
+  const reduction = (PLAN.reduction_pct * frac).toFixed(1);
+  const out = document.getElementById("whatif-readout");
+  if (k === 0) {
+    out.textContent = "No steps executed: layout stays legacy (0% of the saving).";
+  } else if (k === n) {
+    out.textContent = `All ${n} steps: full -${Number(PLAN.reduction_pct).toFixed(1)}% pick-travel reduction, ${finals} SKUs in their final slots.`;
+  } else {
+    out.textContent = `${pctOfFull}% of the full saving (-${reduction}% pick travel), ${finals} SKUs in their final slots.`
+      + (parked > 0 ? " 1 carton is still parked in staging - finish the current cycle before stopping." : "");
+  }
+  document.querySelectorAll("#reshuffle-table tbody tr").forEach((tr, i) => {
+    tr.classList.toggle("beyond", i >= k);
+  });
+}
+
 async function loadReshuffle() {
-  const data = await getJSON("/api/reshuffle");
-  MOVES = data.moves;
+  PLAN = await getJSON("/api/reshuffle");
+  const data = PLAN;
   // Same precision as the KPI tile (1 dp) so the number reads identically everywhere.
   const pct = Number(data.reduction_pct).toFixed(1);
+  const parks = data.n_steps - data.n_moves;
   document.getElementById("reshuffle-summary").innerHTML =
-    `<b>${data.n_moves}</b> moves (all ${data.n_moves} SKUs - full re-slot) reach the optimized layout `
+    `<b>${data.n_moves}</b> SKUs move in <b>${data.n_steps}</b> executable steps `
+    + `(${parks} staging park${parks === 1 ? "" : "s"}, ${data.n_cycles} cycles) `
     + `&middot; demand-weighted pick travel -<b>${pct}%</b> `
     + `&middot; break-even in <b>${data.break_even_days}</b> days.`;
   const tb = document.querySelector("#reshuffle-table tbody");
-  tb.innerHTML = data.moves.map((m, i) =>
-    `<tr data-i="${i}" tabindex="0" title="slot ${m.from_slot} to slot ${m.to_slot} - click to highlight on map">`
-    + `<td>${m.sku}</td><td>${m.from_code}</td><td>${m.to_code}</td></tr>`).join("");
+  tb.innerHTML = data.sequence.map((s, i) => {
+    const from = s.from_slot === null ? `<span class="stage">STAGE</span>` : s.from_code;
+    const to = s.to_slot === null ? `<span class="stage">STAGE</span>` : s.to_code;
+    const first = i === 0 || s.cycle !== data.sequence[i - 1].cycle;
+    return `<tr data-i="${i}" tabindex="0" class="${first ? "cycle-start" : ""}" title="${stepTitle(s)}">`
+      + `<td>${s.seq}</td><td>${s.sku}</td><td>${from}</td><td>${to}</td></tr>`;
+  }).join("");
   tb.querySelectorAll("tr").forEach(tr => {
     const pick = () => {
-      const m = MOVES[+tr.dataset.i];
+      const s = data.sequence[+tr.dataset.i];
       tb.querySelectorAll("tr.sel").forEach(x => x.classList.remove("sel"));
       tr.classList.add("sel");
-      highlightSlots([m.from_slot, m.to_slot]);
+      const ids = [s.from_slot, s.to_slot].filter(x => x !== null);
+      highlightSlots(ids);
       document.getElementById("map-tip").textContent =
-        `${m.sku}: move ${m.from_code} (slot ${m.from_slot}) to ${m.to_code} (slot ${m.to_slot}) - highlighted on map.`;
+        `Step ${s.seq} (cycle ${s.cycle}): ${s.sku} ${s.from_code} to ${s.to_code} - highlighted on map.`;
     };
     tr.addEventListener("click", pick);
     tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
   });
+  const slider = document.getElementById("seq-slider");
+  slider.max = data.n_steps;
+  slider.value = data.n_steps;
+  slider.addEventListener("input", () => applyWhatIf(+slider.value));
+  applyWhatIf(data.n_steps);
   document.getElementById("btn-export-csv").addEventListener("click", exportCsv);
 }
 

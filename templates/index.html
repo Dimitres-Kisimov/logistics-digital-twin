@@ -82,12 +82,18 @@
           <button id="btn-export-csv" type="button" title="Download the move list as CSV">Export CSV</button>
         </div>
         <div id="reshuffle-summary" class="reshuffle-summary">Loading...</div>
-        <p class="plan-caveat">Rows are sorted by SKU, not in execution order: run top-to-bottom, many
-           &ldquo;To&rdquo; slots are still occupied until their own move happens. Treat the list as a
-           simultaneous swap set and use a staging slot (or clear each target first).
-           Every SKU moves &mdash; this is a full re-slot; the solver does not minimise the move count
-           among equally good layouts. Click a row to highlight its slots on the map.</p>
-        <div class="table-wrap"><table id="reshuffle-table"><thead><tr><th>SKU</th><th>From</th><th>To</th></tr></thead><tbody></tbody></table></div>
+        <p class="plan-caveat">Steps are in execution order: every step lands in a spot that is empty
+           at that point. The rack is full, so each cycle of moves parks its first carton once in an
+           off-rack staging position (&ldquo;STAGE&rdquo;, e.g. floor space at dispatch) &mdash; it
+           never holds more than one carton. Cycles run best-savings-first, so stopping after any
+           completed cycle is safe. SKUs whose slot is already as good as any other stay put (the
+           optimizer only moves what buys travel). Click a row to highlight its slots on the map.</p>
+        <div class="whatif">
+          <label for="seq-slider">What-if: execute only the first <b id="whatif-n">all</b> steps</label>
+          <input type="range" id="seq-slider" min="0" max="0" value="0" step="1">
+          <div id="whatif-readout" class="whatif-readout"></div>
+        </div>
+        <div class="table-wrap"><table id="reshuffle-table"><thead><tr><th>#</th><th>SKU</th><th>From</th><th>To</th></tr></thead><tbody></tbody></table></div>
       </section>
     </div>
   </main>

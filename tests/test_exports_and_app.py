@@ -119,6 +119,27 @@ def test_flask_reshuffle_moves_have_location_codes():
         assert m["to_code"].startswith("A") and "-L" in m["to_code"]
 
 
+def test_flask_reshuffle_serves_executable_sequence():
+    from app import app
+
+    client = app.test_client()
+    body = client.get("/api/reshuffle").get_json()
+    seq = body["sequence"]
+    assert body["n_steps"] == len(seq)
+    assert body["n_steps"] == body["n_moves"] + body["n_cycles"]  # one staging park per cycle
+    assert [s["seq"] for s in seq] == list(range(1, len(seq) + 1))
+    # Each cycle opens by parking a carton in STAGE and closes by retrieving it.
+    stage_out = [s for s in seq if s["to_slot"] is None]
+    stage_in = [s for s in seq if s["from_slot"] is None]
+    assert len(stage_out) == len(stage_in) == body["n_cycles"]
+    assert all(s["to_code"] == "STAGE" and s["staging"] for s in stage_out)
+    assert all(s["from_code"] == "STAGE" and s["staging"] for s in stage_in)
+    # Per-step savings add up to the total daily travel saved (what-if slider relies on this).
+    assert abs(sum(s["saving_m_day"] for s in seq) - body["travel_saved_m_day"]) < 0.5
+    # The tie-broken plan is no longer a full re-slot: some SKUs stay put.
+    assert body["n_moves"] < 60
+
+
 def test_flask_index_serves_offline_page():
     from app import app
 

@@ -93,6 +93,14 @@ main { padding: 20px; max-width: 1200px; margin: 0 auto; }
 .reshuffle-summary { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
 .plan-caveat { font-size: 12px; color: #7f8b98; margin: 0 0 8px; }
 #btn-export-csv { padding: 6px 12px; font-size: 13px; }
+.whatif { margin: 0 0 10px; }
+.whatif label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.whatif input[type="range"] { width: 100%; accent-color: var(--teal); }
+.whatif-readout { font-size: 12px; color: var(--ink); min-height: 18px; }
+.stage {
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  background: rgba(233, 160, 59, .15); color: var(--amber); border: 1px solid var(--amber);
+}
 .table-wrap { max-height: 220px; overflow-y: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
@@ -100,6 +108,8 @@ th { color: var(--muted); position: sticky; top: 0; background: var(--panel); }
 #reshuffle-table tbody tr { cursor: pointer; }
 #reshuffle-table tbody tr:hover { background: var(--panel-2); }
 #reshuffle-table tbody tr.sel { background: var(--panel-2); outline: 1px solid var(--amber); }
+#reshuffle-table tbody tr.cycle-start td { border-top: 2px solid var(--line); }
+#reshuffle-table tbody tr.beyond { opacity: .35; }
 
 footer { padding: 18px 22px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); text-align: center; }
 

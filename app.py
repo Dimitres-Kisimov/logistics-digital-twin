@@ -99,12 +99,31 @@ def reshuffle():
         }
         for m in s["moves"]
     ]
+    # Executable sequence: STAGE marks the off-rack staging position each cycle uses once.
+    sequence = [
+        {
+            "seq": st.seq,
+            "sku": st.sku,
+            "from_slot": st.from_slot,
+            "from_code": _slot_code(st.from_slot) if st.from_slot is not None else "STAGE",
+            "to_slot": st.to_slot,
+            "to_code": _slot_code(st.to_slot) if st.to_slot is not None else "STAGE",
+            "cycle": st.cycle,
+            "staging": st.from_slot is None or st.to_slot is None,
+            "saving_m_day": round(st.saving, 2),
+        }
+        for st in s["sequence"]
+    ]
     return jsonify(
         {
             "n_moves": s["n_moves"],
+            "n_steps": s["n_steps"],
+            "n_cycles": s["n_cycles"],
             "break_even_days": round(s["break_even_days"], 2),
             "reduction_pct": round(s["reduction_pct"], 2),
+            "travel_saved_m_day": round(s["travel_saved"], 2),
             "moves": moves,
+            "sequence": sequence,
         }
     )
 
