@@ -31,8 +31,10 @@ CSV import for real SKU catalogs. Its interactive sibling is
 **[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** — the same warehouse
 levers (slotting, ABC velocity, pick travel, push vs pull) as a hands-on, game-like PWA you can
 play with in a browser. Use this engine for batch analysis and provable, reproducible numbers; use
-the app for intuition, teaching, and quick what-ifs. A shared layout-JSON format between the two is
-**planned**, not built — today the repos exchange no files.
+the app for intuition, teaching, and quick what-ifs. The two now share a **layout interchange
+format** ([`logitwin/layout.py`](logitwin/layout.py)): a floor designed in WarehouseTwin loads
+straight into this engine for analysis, and writes back — see
+[Layout interchange](#layout-interchange-warehousetwin-compatible) below.
 
 ## What the run measured
 
@@ -79,7 +81,10 @@ python -m logitwin --deliverables
 # 3) just the headline numbers on the console
 python -m logitwin --summary
 
-# 4) containerised
+# 4) analyze a WarehouseTwin layout with the engine (see "Layout interchange" below)
+python -m logitwin.layout --analyze examples/warehousetwin_layout.json
+
+# 5) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -140,6 +145,57 @@ Files are analysed in memory only and never written to disk, and the exported pl
 itself `reshuffle-plan-imported.csv` so the two never get mixed up. "Reset to synthetic" restores
 the seeded dataset. The CLI deliverables (`python -m logitwin --deliverables`) always describe the
 synthetic run.
+
+## Layout interchange (WarehouseTwin-compatible)
+
+"One format, two tools." A warehouse floor **designed in the browser app
+[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** can be loaded, validated,
+and analysed by this engine — and written back — through
+[`logitwin/layout.py`](logitwin/layout.py). The format is not invented here: it mirrors
+WarehouseTwin's own `serialize()` / share-link JSON exactly (schema `wt-1`, a 1 m grid of
+`{id, type, x, y, w, d}` elements with a `config.minAisleMetres`), so a share link or an exported
+layout drops straight in.
+
+```bash
+python -m logitwin.layout --analyze examples/warehousetwin_layout.json
+python -m logitwin.layout --analyze examples/warehousetwin_layout.json --slotting   # + seeded demo
+python -m logitwin.layout --analyze examples/warehousetwin_layout.json --json        # machine-readable
+```
+
+Sample output on the bundled example (`examples/warehousetwin_layout.json`):
+
+```
+[analyze] WarehouseTwin layout (schema wt-1)
+  grid: 20 x 12 cells @ 1.0 m/cell  (240.0 m^2 floor)
+  elements: 6  (storage 2, flow 4; docks in=1 out=1)
+  capacity: 58 pallet positions across 24.0 m^2 storage (10.0% of floor)
+  aisle guard (min 2.9 m): 1 facing pair(s), 0 violation(s), narrowest 3.0 m
+  pick travel to dock-out (rectilinear round-trip proxy): mean 14.0 m, min 10.0 m, max 18.0 m over 58 positions
+```
+
+Programmatic API: `load_layout(obj | json_str)` validates the layout (unknown fields/types, an
+unsupported schema, out-of-bounds geometry and duplicate ids all raise `LayoutError`;
+`reject_overlaps=True` adds an overlap check); `dump_layout(layout)` round-trips
+(`load_layout(dump_layout(x)) == x`); `analyze_layout(layout)` returns the structured result above;
+`layout_to_warehouse(layout)` maps the floor into the engine's `Warehouse` / `Slot` model; and
+`load_share_link("#layout=…")` decodes a WarehouseTwin share link straight into the engine.
+
+**Honest mapping** — the layout is a 2D floor plan and this engine's model is more abstract, so:
+
+- **Maps faithfully** — footprint geometry (`x, y, w, d` in cells), the element-type vocabulary, and
+  pallet **capacity** per storage element (the *identical* `elementCapacity` formula and half-up
+  rounding as WarehouseTwin's `domain.js`), plus the aisle-width guard (`facingAislePairs` /
+  `aisleViolations` against `minAisleMetres`).
+- **Approximated** — **pick travel** is a rectilinear centroid-to-nearest-dock round-trip proxy (no
+  aisle routing or rack entry points), consistent with the engine's own "round-trip proxy" distance
+  model; storage positions become engine `Slot`s with synthetic aisle/bay/level indices and default
+  slot cavity dims.
+- **Dropped** — a layout carries **no SKU / demand data**, so a true slotting *optimization* cannot
+  be computed from it. `--slotting` is an explicit demo that pairs the layout's real slot geometry
+  with **seeded synthetic** cartons (and discloses it); its reduction % reflects that synthetic
+  demand, not the layout. Material-flow connectivity and per-element attributes (selectivity,
+  rotation, handling/cycle times, height, cost) are not consumed; `config` keys other than
+  `minAisleMetres` are preserved for a loss-free round trip but not interpreted.
 
 ## Methods (and their honest limits)
 

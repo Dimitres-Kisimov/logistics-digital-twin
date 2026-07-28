@@ -1,0 +1,16 @@
+{
+  "version": "wt-1",
+  "gridW": 20,
+  "gridH": 12,
+  "cell": 1.0,
+  "elements": [
+    { "id": "el-1", "type": "dock-in", "x": 0, "y": 0, "w": 2, "d": 1 },
+    { "id": "el-2", "type": "staging", "x": 2, "y": 0, "w": 6, "d": 2 },
+    { "id": "el-3", "type": "selective-racking", "x": 2, "y": 4, "w": 12, "d": 1 },
+    { "id": "el-4", "type": "selective-racking", "x": 2, "y": 8, "w": 12, "d": 1 },
+    { "id": "el-5", "type": "conveyor", "x": 15, "y": 4, "w": 1, "d": 5 },
+    { "id": "el-6", "type": "dock-out", "x": 9, "y": 11, "w": 2, "d": 1 }
+  ],
+  "config": { "minAisleMetres": 2.9, "seed": 42, "strategy": "abc", "flowMode": "pull" },
+  "savedAt": "2026-07-28T00:00:00.000Z"
+}

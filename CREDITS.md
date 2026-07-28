@@ -4,6 +4,10 @@ All assets in this repository are original work by Dimitres Kisimov — © 2026 
 all rights reserved.
 
 - **Code**: written from scratch for this project (Python package `logitwin`, Flask app, tests).
+- **Layout interchange format** (`logitwin/layout.py`): the schema, element-type vocabulary, storage
+  densities, capacity formula, aisle guard, and share-link codec **mirror WarehouseTwin** (the
+  sibling app in `logistics-flow-studio`, © Dimitres Kisimov) so the two tools exchange the same
+  layout files. Both tools are the author's own work; nothing third-party is reused.
 - **Data**: 100% synthetic and deterministic (seeded generators in `logitwin/data.py`). No real
   customer, order, or facility data is used anywhere.
 - **Graphics**: the warehouse-map view and all charts are hand-built — inline SVG / HTML Canvas in
