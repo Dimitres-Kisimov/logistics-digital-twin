@@ -84,7 +84,11 @@ python -m logitwin --summary
 # 4) analyze a WarehouseTwin layout with the engine (see "Layout interchange" below)
 python -m logitwin.layout --analyze examples/warehousetwin_layout.json
 
-# 5) containerised
+# 5) benchmark the packing engine against proven optima (see "Benchmark" below)
+python -m logitwin.benchmark            # print the table
+python -m logitwin.benchmark --json     # machine-readable
+
+# 6) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -218,6 +222,59 @@ unsupported schema, out-of-bounds geometry and duplicate ids all raise `LayoutEr
 
 More detail and citations are in [`docs/METHODS.md`](docs/METHODS.md); the framing for a
 non-technical reader is in [`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md).
+
+## Benchmark: packing vs proven optima
+
+A headline number is only worth as much as the yardstick behind it, so the packing engine is
+benchmarked against a small set of **standard 1D bin-packing instances whose optimum is proven**,
+and the gap is reported openly — **including the instances where the heuristic loses**. This is the
+honest counterpart to the single "0% gap" check in the summary above.
+
+Run it with `python -m logitwin.benchmark`. It calls the *real* engine — the First-Fit-Decreasing
+heuristic (`ffd_min_bins_1d`) and the CP-SAT exact solver (`cpsat_min_bins`) from
+[`logitwin/packing.py`](logitwin/packing.py) — on the instances committed in
+[`data/benchmark_instances.json`](data/benchmark_instances.json):
+
+| instance | engine (FFD heuristic) | engine (CP-SAT) | known/optimal | FFD gap | note |
+| --- | --- | --- | --- | --- | --- |
+| perfect-pairs-8 | 4 | 4 | 4 | 0 | FFD optimal |
+| even-split-12 | 6 | 6 | 6 | 0 | FFD optimal |
+| triplet-9 | 4 | 3 | 3 | **+1 (33.3%)** | FFD suboptimal |
+| triplet-18 | 7 | 6 | 6 | **+1 (16.7%)** | FFD suboptimal |
+| ffd-suboptimal-8 | 4 | 3 | 3 | **+1 (33.3%)** | FFD suboptimal |
+| ffd-suboptimal-10 | 5 | 4 | 4 | **+1 (25.0%)** | FFD suboptimal |
+
+**What this says, honestly:**
+
+- **FFD is optimal on 2 of the 6 instances and suboptimal on 4** — on every triplet instance and on
+  both dedicated traps it opens **one bin more than the optimum** (up to 33.3% more bins on the
+  smallest cases). This is expected and is the point of the benchmark: bin packing is NP-hard and FFD
+  is a heuristic, so it is *not* optimal in general. Its 1D worst-case bound is
+  `FFD(I) <= (11/9)·OPT(I) + 6/9` (Dósa 2007) — about 22% above optimum in the worst case.
+- **CP-SAT reaches the proven optimum on every instance.** The engine's exact solver earns its keep
+  here; it is the reason the app can *measure* the heuristic's gap rather than guess it.
+- The **triplet-\*** instances are Falkenauer's classic hard case for FFD (items grouped so three
+  fill a bin exactly): greedily pairing two large items strands the third slot, which is exactly the
+  failure the table shows.
+
+**Where the instances (and their optima) come from** — cited per-instance in the JSON:
+
+- **triplet-9 / triplet-18** — *constructed following Falkenauer's (1996) triplet-instance scheme*
+  (each bin holds three items and is exactly full, so the optimum is `n/3`). The published instance
+  files are distributed via **OR-Library** (Beasley 1990) and **BPPLIB** (Delorme, Iori & Martello
+  2018); this benchmark runs fully offline and deterministically, so it reproduces the *scheme*
+  rather than shipping a fetched copy of a specific file, and says so.
+- **perfect-pairs-8 / even-split-12 / ffd-suboptimal-8 / ffd-suboptimal-10** — *hand-constructed*
+  and labelled as such; the FFD-suboptimal pair is built to expose the heuristic's gap
+  (cf. Johnson 1973; Dósa 2007).
+
+Every optimum is **proven, not asserted**: for each instance the volume lower bound
+`ceil(sum(items) / capacity)` equals the number of bins in an exhibited optimal packing (stored in
+the JSON), so the known optimum is at once a valid lower bound and an achievable upper bound. The
+loader (`logitwin.benchmark.validate_instance`) re-checks that proof on every run, and the test
+suite pins the exact engine numbers above — the wins *and* the losses. Results are deterministic
+(FFD is deterministic; CP-SAT proves optimality well inside its time limit, so the bin count does
+not depend on wall-clock timing — runtimes are reported for information only).
 
 ## Illustrative public case studies
 

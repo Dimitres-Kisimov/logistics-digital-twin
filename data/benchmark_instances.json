@@ -1,0 +1,86 @@
+{
+  "schema": "logitwin-bpp-1",
+  "description": "Standard-style 1D bin-packing instances used to benchmark logitwin's packing engine (FFD heuristic + CP-SAT) against a known optimum. Every optimum below is PROVEN, not asserted: for each instance the volume lower bound ceil(sum(items)/bin_capacity) equals the number of bins in an exhibited optimal_packing, so known_optimum is simultaneously a valid lower bound and an achievable upper bound. JSON has no comment syntax, so each instance carries its provenance in the optimum_source / optimum_proof / citation / note fields.",
+  "honesty_note": "The published Falkenauer/OR-Library/BPPLIB instance FILES are distributed over the network and are not bundled here (this benchmark runs fully offline and deterministically). The triplet instances below are CONSTRUCTED FOLLOWING Falkenauer's documented triplet scheme (exactly three items per bin, each bin exactly full, so OPT = n/3); they are not verbatim copies of a specific published file. All other instances are hand-constructed and labelled 'constructed'. Nothing here is claimed to be a win the engine did not earn: instances where FFD is suboptimal are included on purpose and their gaps are reported plainly.",
+  "references": {
+    "falkenauer-1996": "Falkenauer, E. (1996). A hybrid grouping genetic algorithm for bin packing. Journal of Heuristics, 2(1), 5-30. Origin of the 'uniform' and 'triplet' 1D BPP benchmark instances; triplet instances are built so the optimum packs exactly three items per bin (bins exactly full), giving a known optimum of n/3.",
+    "or-library": "Beasley, J. E. (1990). OR-Library: distributing test problems by electronic mail. Journal of the Operational Research Society, 41(11), 1069-1072. Public repository that distributes the Falkenauer 1D bin-packing instances (binpack1..binpack8).",
+    "bpplib": "Delorme, M., Iori, M., & Martello, S. (2018). BPPLIB: a library for bin packing and cutting stock problems. Optimization Letters, 12(2), 235-250. Consolidated public library of BPP/CSP instances (Falkenauer, Scholl, Schwerin, Waescher, ...) with best-known/optimal values.",
+    "johnson-1973": "Johnson, D. S. (1973). Near-optimal bin packing algorithms (PhD thesis, MIT). Establishes First-Fit-Decreasing and that it is a heuristic (not optimal in general).",
+    "dosa-2007": "Dosa, G. (2007). The tight bound of first fit decreasing bin-packing algorithm is FFD(I) <= (11/9)OPT(I) + 6/9. ESCAPE 2007, LNCS 4614, 1-11. Tight worst-case ratio for FFD in the 1D case (~22% above optimal in the worst case)."
+  },
+  "instances": [
+    {
+      "name": "perfect-pairs-8",
+      "dimension": "1D",
+      "bin_capacity": 100,
+      "items": [90, 10, 80, 20, 70, 30, 60, 40],
+      "known_optimum": 4,
+      "optimum_source": "constructed",
+      "optimum_proof": "Sum of items = 400 and bin_capacity = 100, so the volume lower bound is ceil(400/100) = 4. The exhibited optimal_packing uses 4 bins each summing to exactly 100, so 4 is achievable. Lower bound = achievable count => OPT = 4.",
+      "optimal_packing": [[90, 10], [80, 20], [70, 30], [60, 40]],
+      "citation": "constructed for this benchmark; optimum proven by the volume lower bound (see optimum_proof).",
+      "note": "Every item pairs with exactly one other to fill a bin. FFD is expected to solve this optimally."
+    },
+    {
+      "name": "even-split-12",
+      "dimension": "1D",
+      "bin_capacity": 100,
+      "items": [50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50],
+      "known_optimum": 6,
+      "optimum_source": "constructed",
+      "optimum_proof": "Sum = 600, bin_capacity = 100, volume lower bound = ceil(600/100) = 6. The exhibited packing pairs the twelve identical items into 6 full bins of 100, so 6 is achievable. Lower bound = achievable count => OPT = 6.",
+      "optimal_packing": [[50, 50], [50, 50], [50, 50], [50, 50], [50, 50], [50, 50]],
+      "citation": "constructed for this benchmark; optimum proven by the volume lower bound (see optimum_proof).",
+      "note": "Twelve identical half-capacity items. FFD is expected to solve this optimally."
+    },
+    {
+      "name": "triplet-9",
+      "dimension": "1D",
+      "bin_capacity": 1000,
+      "items": [500, 300, 200, 450, 350, 200, 400, 350, 250],
+      "known_optimum": 3,
+      "optimum_source": "falkenauer-triplet-scheme",
+      "optimum_proof": "Constructed following Falkenauer's triplet scheme: items are grouped into triples that each sum to exactly the bin capacity (1000). Sum = 3000, so the volume lower bound is ceil(3000/1000) = 3, and the exhibited optimal_packing achieves 3 bins => OPT = 3 (= n/3).",
+      "optimal_packing": [[500, 300, 200], [450, 350, 200], [400, 350, 250]],
+      "citation": "constructed following Falkenauer (1996) triplet-instance scheme; distributed forms in OR-Library (Beasley 1990) and BPPLIB (Delorme et al. 2018). Optimum n/3 by construction and confirmed by the volume lower bound.",
+      "note": "Triplet instances are the classic hard case for FFD: pairing two large items wastes the third slot. FFD is expected to be suboptimal here."
+    },
+    {
+      "name": "triplet-18",
+      "dimension": "1D",
+      "bin_capacity": 1000,
+      "items": [500, 300, 200, 450, 350, 200, 400, 350, 250, 480, 320, 200, 460, 290, 250, 420, 330, 250],
+      "known_optimum": 6,
+      "optimum_source": "falkenauer-triplet-scheme",
+      "optimum_proof": "Constructed following Falkenauer's triplet scheme: six triples each summing to exactly 1000. Sum = 6000, volume lower bound = ceil(6000/1000) = 6, and the exhibited optimal_packing achieves 6 bins => OPT = 6 (= n/3).",
+      "optimal_packing": [[500, 300, 200], [450, 350, 200], [400, 350, 250], [480, 320, 200], [460, 290, 250], [420, 330, 250]],
+      "citation": "constructed following Falkenauer (1996) triplet-instance scheme; distributed forms in OR-Library (Beasley 1990) and BPPLIB (Delorme et al. 2018). Optimum n/3 by construction and confirmed by the volume lower bound.",
+      "note": "Larger triplet instance. FFD is expected to be suboptimal here for the same reason as triplet-9."
+    },
+    {
+      "name": "ffd-suboptimal-8",
+      "dimension": "1D",
+      "bin_capacity": 100,
+      "items": [54, 44, 42, 41, 34, 30, 29, 20],
+      "known_optimum": 3,
+      "optimum_source": "constructed",
+      "optimum_proof": "Sum = 294, bin_capacity = 100, volume lower bound = ceil(294/100) = 3. The exhibited optimal_packing uses 3 bins (sums 98, 96, 100, all <= 100), so 3 is achievable. Lower bound = achievable count => OPT = 3.",
+      "optimal_packing": [[54, 44], [42, 34, 20], [41, 30, 29]],
+      "citation": "constructed for this benchmark to exhibit FFD suboptimality (cf. Johnson 1973; Dosa 2007); optimum proven by the volume lower bound (see optimum_proof).",
+      "note": "Smallest instance found where First-Fit-Decreasing (sorted descending, first fit) opens a 4th bin while the optimum is 3. FFD is suboptimal here by design."
+    },
+    {
+      "name": "ffd-suboptimal-10",
+      "dimension": "1D",
+      "bin_capacity": 100,
+      "items": [60, 55, 46, 45, 41, 37, 36, 27, 25, 20],
+      "known_optimum": 4,
+      "optimum_source": "constructed",
+      "optimum_proof": "Sum = 392, bin_capacity = 100, volume lower bound = ceil(392/100) = 4. The exhibited optimal_packing uses 4 bins (sums 96, 100, 98, 98, all <= 100), so 4 is achievable. Lower bound = achievable count => OPT = 4.",
+      "optimal_packing": [[60, 36], [55, 45], [46, 27, 25], [41, 37, 20]],
+      "citation": "constructed for this benchmark to exhibit FFD suboptimality (cf. Johnson 1973; Dosa 2007); optimum proven by the volume lower bound (see optimum_proof).",
+      "note": "A second, larger FFD trap: FFD opens a 5th bin while the optimum is 4. FFD is suboptimal here by design."
+    }
+  ]
+}
