@@ -106,10 +106,19 @@ _STORAGE_DENSITY: dict[str, float] = {
     "mezzanine": 2.0,
 }
 
-# "flow"-category element types (docks, staging, conveyor, control/pack stations).
+# "flow"-category element types: docks, staging, control/pack stations, and TRANSPORT lanes.
+# Transport lanes are ``conveyor`` and ``rgv`` (a rail/rack-guided-vehicle lane): they MOVE goods
+# between zones, they do not STORE them, so - like every non-storage type - they contribute 0 pallet
+# positions (see :func:`element_capacity`). ``rgv`` mirrors the WarehouseTwin ``rgv`` transport
+# element so a generated plant with RGV lanes (see ``generate.py``) round-trips through both tools.
 _FLOW_TYPES: frozenset[str] = frozenset(
-    {"dock-in", "dock-out", "staging", "conveyor", "push-station", "pull-station", "pack-station"}
+    {"dock-in", "dock-out", "staging", "conveyor", "rgv",
+     "push-station", "pull-station", "pack-station"}
 )
+
+# Transport lanes among the flow types (non-storage, move-not-store). Documented for honesty; the
+# capacity/aisle logic already treats them like any other non-storage type.
+_TRANSPORT_TYPES: frozenset[str] = frozenset({"conveyor", "rgv"})
 
 # The full placeable-element vocabulary (``domain.js`` ``paletteOrder``). Anything outside
 # this set is rejected by :func:`load_layout` (WarehouseTwin's own importer silently DROPS
@@ -195,7 +204,7 @@ def _round_half_up(v: float) -> int:
 def element_capacity(el: Element, cell: float) -> int:
     """Pallet positions contributed by one element - exact port of ``domain.js`` ``elementCapacity``."""
     density = _STORAGE_DENSITY.get(el.type)
-    if density is None:  # flow element -> no storage positions
+    if density is None:  # flow/transport element (dock, staging, conveyor, rgv, ...) -> no positions
         return 0
     area_m2 = el.w * el.d * cell * cell
     return max(0, _round_half_up(area_m2 * density))

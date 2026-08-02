@@ -88,7 +88,11 @@ python -m logitwin.layout --analyze examples/warehousetwin_layout.json
 python -m logitwin.benchmark            # print the table
 python -m logitwin.benchmark --json     # machine-readable
 
-# 6) containerised
+# 6) generate a WarehouseTwin-compatible plant layout (see "Plant generator" below)
+python -m logitwin.generate --profile spare-parts-distribution --seed 42
+python -m logitwin.generate --profile cold-chain --grid-w 48 --grid-h 28 --json
+
+# 7) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -200,6 +204,53 @@ unsupported schema, out-of-bounds geometry and duplicate ids all raise `LayoutEr
   demand, not the layout. Material-flow connectivity and per-element attributes (selectivity,
   rotation, handling/cycle times, height, cost) are not consumed; `config` keys other than
   `minAisleMetres` are preserved for a loss-free round trip but not interpreted.
+
+## Plant generator (WarehouseTwin-compatible)
+
+The interchange runs both ways: as well as *analysing* a floor drawn in the app, the engine can
+*generate* one. [`logitwin/generate.py`](logitwin/generate.py) is a procedural plant-layout
+generator that, given a **plant profile** and a floor size, lays out docks, staging, compliant
+racking zones and automation lanes and emits them in the same `wt-1` interchange — so a plant
+generated here drops straight into WarehouseTwin, and RGV/conveyor lanes placed here round-trip
+through both tools.
+
+```bash
+python -m logitwin.generate --list-profiles
+python -m logitwin.generate --profile spare-parts-distribution --seed 42
+python -m logitwin.generate --profile cold-chain --grid-w 48 --grid-h 28 --json   # emit the wt-1 layout
+```
+
+Four shared **plant profiles** (keys pinned to interoperate with the app):
+`ecommerce-fulfilment`, `spare-parts-distribution`, `automotive-supply`, `cold-chain`. Each profile
+is a set of **documented best-practice assumptions** — zone mix (which racking types, in what
+proportion), minimum aisle width, dock count, a per-profile rack depth, and automation
+(`conveyor` / `rgv` lanes). Sample summary:
+
+```
+[generate] plant layout 'spare-parts-distribution' (schema wt-1, seed 42)
+  Spare-parts distribution centre: Very high SKU count, low units per line: ...
+  grid: 40 x 24 cells @ 1.0 m/cell  (960.0 m^2 floor)
+  docks: in=2 out=2  |  staging bands: 2
+  zones (rack rows): carton-flow x2, mobile-racking x1, selective-racking x1
+  transport lanes: conveyor x1 (transport, not storage -> 0 pallet positions)
+  capacity: 676 pallet positions across 290.0 m^2 storage (30.2% of floor)
+  aisle guard (min 2.2 m): 6 facing pair(s), 0 violation(s), narrowest 3.0 m
+```
+
+**RGV support** — the `rgv` element (a rail/rack-guided-vehicle lane) is a shared transport type:
+it *moves* goods between zones, it does not *store* them, so it contributes **0 pallet positions**
+(same rule as `conveyor` and every other non-storage element) while still validating and
+round-tripping through the interchange.
+
+**Honest scope** — the generator is a **deterministic rule/heuristic** (best-practice-informed),
+**not a trained model** and not an optimiser: a given `(profile, grid, seed)` always yields a
+byte-identical layout, and every result is re-validated (schema, in-bounds, overlap-free,
+aisle-compliant) before it is returned. It reasons only about **2D footprint geometry** on a fixed
+1 m grid, so it does **not** model real aisle routing/traffic or one-way flow, rack-internal
+bay/level structure or true rack depths, SKUs/demand/throughput (no slotting or labour numbers),
+building constraints (column grid, fire egress, sprinkler/ESFR, refrigeration zoning, floor-load
+ratings, the yard), or multi-level mezzanines. The per-profile numbers are assumptions, not
+measurements from a real site.
 
 ## Methods (and their honest limits)
 
