@@ -92,7 +92,12 @@ python -m logitwin.benchmark --json     # machine-readable
 python -m logitwin.generate --profile spare-parts-distribution --seed 42
 python -m logitwin.generate --profile cold-chain --grid-w 48 --grid-h 28 --json
 
-# 7) containerised
+# 7) slotting / pick-travel sensitivity sweep (see "Slotting sensitivity" below)
+python -m logitwin.sensitivity                      # print the frontier table + trade-off read
+python -m logitwin.sensitivity --csv f.csv --svg f.svg   # write the deliverables
+python -m logitwin.sensitivity --json               # machine-readable
+
+# 8) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -270,6 +275,10 @@ measurements from a real site.
   (no SimPy). It is deterministic given the seed. The large cycle-time gap is partly a queueing
   effect: the legacy single-picker configuration runs close to capacity, so its wait times amplify
   the per-pick inefficiency - which is itself a real and relevant finding, not a modelling trick.
+- **Slotting sensitivity** (`logitwin/sensitivity.py`) - a what-if layer that *reuses* the slotting
+  optimizer and the simulation above (it introduces no new heuristic) to sweep how far to push a
+  velocity re-slot and report the efficient frontier and its knee. See
+  [Slotting sensitivity](#slotting-sensitivity-how-far-to-push-a-re-slot) below.
 
 More detail and citations are in [`docs/METHODS.md`](docs/METHODS.md); the framing for a
 non-technical reader is in [`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md).
@@ -326,6 +335,55 @@ loader (`logitwin.benchmark.validate_instance`) re-checks that proof on every ru
 suite pins the exact engine numbers above — the wins *and* the losses. Results are deterministic
 (FFD is deterministic; CP-SAT proves optimality well inside its time limit, so the bin count does
 not depend on wall-clock timing — runtimes are reported for information only).
+
+## Slotting sensitivity: how far to push a re-slot
+
+A full velocity re-slot lands a **-44.2%** pick-travel figure, but touching every SKU is rarely
+worth it. This layer answers the operational follow-up honestly: **how much of that saving do you
+capture if you only re-slot your top-X% fastest movers?** It sweeps one lever — the fraction of SKUs
+(highest daily demand first) committed to the re-slot — and **reuses the existing engine unchanged**:
+the Hungarian slotting optimizer (`logitwin/slotting.py`) re-slots the committed SKUs among the slots
+they already occupy, and the discrete-event simulation (`logitwin/simulate.py`) reads throughput off
+each resulting layout. Committing more SKUs can only lower travel, so travel-vs-effort is a genuine
+efficient frontier, and the recommended point is its knee.
+
+Run `python -m logitwin.sensitivity`. On the seeded 60-SKU synthetic facility (committed frontier
+in [`docs/slotting_sensitivity.csv`](docs/slotting_sensitivity.csv), rendered in
+[`docs/slotting_sensitivity.svg`](docs/slotting_sensitivity.svg); `python -m logitwin --deliverables`
+also drops a copy in the generated `deliverables/` bundle):
+
+| SKUs committed | moves | pick travel (unit-m/day) | travel reduction | golden-zone A-occupancy | mean cycle time |
+| --- | --- | --- | --- | --- | --- |
+| 0 (legacy) | 0 | 29,423.9 | 0.0% | 25% | 244.2 s |
+| 12 (top 20%) | 0 | 29,423.9 | 0.0% | 25% | 244.2 s |
+| 18 (top 30%) | 6 | 25,691.8 | 12.7% | 50% | 211.6 s |
+| 24 (top 40%) | 16 | 23,230.6 | 21.1% | 50% | 194.4 s |
+| 36 (top 60%) | 24 | 17,876.6 | 39.2% | 100% | 162.6 s |
+| **42 (top 70%)** | **33** | **16,563.5** | **43.7%** | **100%** | **154.1 s** |
+| 60 (all) | 36 | 16,423.5 | 44.2% | 100% | 158.0 s |
+
+**The trade-off read, straight from the code:** committing the **top 42 of 60 SKUs (33 moves)
+captures 43.7% pick-travel reduction — over 90% of the full re-slot's 44.2%**. Going all the way to
+100% adds only 3 more moves for the last 0.5 of a point. Across that push, golden-zone A-mover
+occupancy rises **25% → 100%** and mean order cycle time falls **244 s → 158 s**. The recommended
+operating point is therefore the **top 70% cutoff** — near-all of the benefit at ~90% of the effort.
+
+**Honest notes:**
+
+- The first two rows (up to the top 20%) show **0 moves and 0% saving**: those SKUs are all one
+  velocity class (A), so shuffling equal-demand SKUs among a fixed set of slots buys no travel — the
+  saving only starts once the committed set spans more than one demand level. That is reported, not
+  hidden.
+- **Throughput here is responsiveness, not completion rate.** Because the sweep holds batched picking
+  fixed and only varies slotting, the single picker stays under-loaded, so *orders completed per
+  hour* is arrival-bound and barely moves; slotting shows up as **mean cycle time** (−35% across the
+  sweep) and simulated **picker travel** (11,281 m → 6,815 m), which is what the table and the CSV
+  track. This mirrors the queueing note in Methods below.
+- All figures are **synthetic, seeded and deterministic** (the CSV and SVG are byte-identical across
+  re-runs), teaching-scale, and reported exactly as the code produces them. The slotting optimum is
+  exact only for the one-SKU-per-slot model; real slotting adds capacity, family and congestion
+  constraints this omits. This lever is distinct from the dashboard's what-if slider (which executes
+  a growing prefix of the *full* plan's move sequence); both bottom out at the same optimum.
 
 ## Illustrative public case studies
 

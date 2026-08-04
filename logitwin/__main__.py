@@ -15,6 +15,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from .analysis import full_report, headline_numbers  # noqa: E402
 from .exports import build_excel, build_pdf  # noqa: E402
+from .sensitivity import frontier_report, to_csv, to_svg  # noqa: E402
 
 
 def _write_deliverables(out_dir: Path) -> list[Path]:
@@ -26,6 +27,18 @@ def _write_deliverables(out_dir: Path) -> list[Path]:
     xlsx_path = out_dir / "warehouse_digital_twin.xlsx"
     pdf_path.write_bytes(pdf)
     xlsx_path.write_bytes(xlsx)
+
+    # Slotting / pick-travel sensitivity: a small deterministic CSV + hand-drawn SVG frontier the
+    # README references. These are legitimately small (well under the 10 KB deliverable gate below),
+    # so they are written here but reported separately from the PDF/Excel size check.
+    fr = frontier_report()
+    csv_path = out_dir / "slotting_sensitivity.csv"
+    svg_path = out_dir / "slotting_sensitivity.svg"
+    csv_path.write_text(to_csv(fr["rows"]), encoding="utf-8")
+    svg_path.write_text(to_svg(fr), encoding="utf-8")
+    for pth in (csv_path, svg_path):
+        print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
+
     return [pdf_path, xlsx_path]
 
 

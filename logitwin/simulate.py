@@ -67,27 +67,22 @@ def _modern_service(batch: list[Order], dist: dict[str, float]) -> tuple[float, 
     return time_s, travel_m
 
 
-def simulate(
-    regime: str,
+def _simulate_core(
+    label: str,
+    assignment: dict[str, int],
+    batch_size: int,
+    utilization: float,
     cartons: list[Carton],
     warehouse: Warehouse,
     orders: list[Order],
 ) -> SimResult:
-    """Run the discrete-event simulation for ``regime`` in {"legacy", "modern"}."""
-    if regime == "legacy":
-        assignment = legacy_slotting(cartons, warehouse).assignment
-        utilization = naive_pack(cartons).fill_rate
-        batch_size = 1
-    elif regime == "modern":
-        # Same canonical optimized layout as the slotting report: tie-broken toward keeping SKUs
-        # in place, so the simulated layout is the one the re-shuffle plan actually produces.
-        legacy_assignment = legacy_slotting(cartons, warehouse).assignment
-        assignment = optimize_slotting(cartons, warehouse, prefer=legacy_assignment).assignment
-        utilization = ffd_pack(cartons).fill_rate
-        batch_size = MODERN_BATCH_SIZE
-    else:
-        raise ValueError(f"unknown regime: {regime!r}")
+    """Run the discrete-event picking simulation for a fixed slotting ``assignment``.
 
+    The regime-agnostic core: the caller supplies the slotting (sku -> slot), the batch size
+    (1 = legacy sequential, >1 = modern batched), the container utilization to report, and a
+    ``label`` for the result. The queueing model is identical for every regime, so isolating it
+    here lets the slotting sensitivity feed in arbitrary layouts without duplicating it.
+    """
     dist = _distance_map(assignment, warehouse)
 
     # Event queue. Kinds: 0 = ARRIVAL, 1 = PICK_DONE. seq breaks ties deterministically.
@@ -149,7 +144,7 @@ def simulate(
         p95 = 0.0
 
     return SimResult(
-        regime=regime,
+        regime=label,
         orders_completed=n,
         mean_cycle_time_s=mean_cycle,
         total_travel_m=total_travel,
@@ -157,6 +152,54 @@ def simulate(
         p95_cycle_time_s=p95,
         makespan_s=makespan,
     )
+
+
+def simulate(
+    regime: str,
+    cartons: list[Carton],
+    warehouse: Warehouse,
+    orders: list[Order],
+) -> SimResult:
+    """Run the discrete-event simulation for ``regime`` in {"legacy", "modern"}."""
+    if regime == "legacy":
+        assignment = legacy_slotting(cartons, warehouse).assignment
+        utilization = naive_pack(cartons).fill_rate
+        batch_size = 1
+    elif regime == "modern":
+        # Same canonical optimized layout as the slotting report: tie-broken toward keeping SKUs
+        # in place, so the simulated layout is the one the re-shuffle plan actually produces.
+        legacy_assignment = legacy_slotting(cartons, warehouse).assignment
+        assignment = optimize_slotting(cartons, warehouse, prefer=legacy_assignment).assignment
+        utilization = ffd_pack(cartons).fill_rate
+        batch_size = MODERN_BATCH_SIZE
+    else:
+        raise ValueError(f"unknown regime: {regime!r}")
+
+    return _simulate_core(regime, assignment, batch_size, utilization, cartons, warehouse, orders)
+
+
+def simulate_assignment(
+    assignment: dict[str, int],
+    cartons: list[Carton],
+    warehouse: Warehouse,
+    orders: list[Order],
+    *,
+    batch_size: int = MODERN_BATCH_SIZE,
+    utilization: float | None = None,
+    label: str = "what-if",
+) -> SimResult:
+    """Simulate an arbitrary slotting ``assignment`` under the modern batched-pick regime.
+
+    Used by the slotting sensitivity sweep to read throughput off a layout that is neither the pure
+    legacy nor the fully optimized one. Packing (hence ``utilization``) is independent of slotting,
+    so it defaults to the same FFD fill the modern regime reports; only the slotting varies across
+    the sweep.
+    """
+    if utilization is None:
+        utilization = (
+            ffd_pack(cartons).fill_rate if batch_size != 1 else naive_pack(cartons).fill_rate
+        )
+    return _simulate_core(label, assignment, batch_size, utilization, cartons, warehouse, orders)
 
 
 def simulation_report(
