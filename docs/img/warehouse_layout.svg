@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="358" viewBox="0 0 450 358" font-family="sans-serif">
+<rect width="450" height="358" fill="#ffffff"/>
+<text x="34" y="30" font-size="16" font-weight="bold" fill="#1f3a5f">Velocity-slotted warehouse layout (engine output)</text>
+<text x="34" y="48" font-size="11" fill="#9aa5b1">Synthetic, seeded 60-slot facility - columns ordered near-dispatch first (left)</text>
+<text x="34" y="66" font-size="11" fill="#333333">A-movers pulled into the gold-ringed slots nearest dispatch</text>
+<line x1="62" y1="76" x2="62" y2="298" stroke="#2a9d8f" stroke-width="2"/>
+<text x="56" y="187" font-size="10" fill="#2a9d8f" text-anchor="middle" transform="rotate(-90 56 187)">DISPATCH</text>
+<rect x="74" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="74" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="110" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="110" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="146" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="146" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="182" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="182" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="218" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="218" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="254" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="254" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="290" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="290" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="326" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="326" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="398" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="398" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="362" y="82" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="362" y="82" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="74" y="118" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="74" y="118" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="110" y="118" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="110" y="118" width="30" height="30" rx="4" fill="none" stroke="#b8860b" stroke-width="3"/>
+<rect x="182" y="118" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="146" y="118" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="218" y="118" width="30" height="30" rx="4" fill="#2a9d8f"/>
+<rect x="290" y="118" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="254" y="118" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="326" y="118" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="398" y="118" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="362" y="118" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="74" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="110" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="182" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="146" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="218" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="290" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="254" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="326" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="398" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="362" y="154" width="30" height="30" rx="4" fill="#e9a03b"/>
+<rect x="74" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="110" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="182" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="146" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="218" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="290" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="254" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="326" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="398" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="362" y="190" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="74" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="110" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="182" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="146" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="218" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="290" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="254" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="326" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="398" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="362" y="226" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="74" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="110" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="182" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="146" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="218" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="290" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="254" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="326" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="398" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<rect x="362" y="262" width="30" height="30" rx="4" fill="#6b7a8d"/>
+<text x="48" y="101" font-size="10" fill="#9aa5b1" text-anchor="end">A1</text>
+<text x="48" y="137" font-size="10" fill="#9aa5b1" text-anchor="end">A2</text>
+<text x="48" y="173" font-size="10" fill="#9aa5b1" text-anchor="end">A3</text>
+<text x="48" y="209" font-size="10" fill="#9aa5b1" text-anchor="end">A4</text>
+<text x="48" y="245" font-size="10" fill="#9aa5b1" text-anchor="end">A5</text>
+<text x="48" y="281" font-size="10" fill="#9aa5b1" text-anchor="end">A6</text>
+<rect x="34" y="318" width="14" height="14" rx="3" fill="#2a9d8f"/>
+<text x="54" y="329" font-size="10" fill="#333333">A (fast)</text>
+<rect x="134" y="318" width="14" height="14" rx="3" fill="#e9a03b"/>
+<text x="154" y="329" font-size="10" fill="#333333">B (medium)</text>
+<rect x="250" y="318" width="14" height="14" rx="3" fill="#6b7a8d"/>
+<text x="270" y="329" font-size="10" fill="#333333">C (slow)</text>
+<rect x="34" y="340" width="14" height="14" rx="3" fill="none" stroke="#b8860b" stroke-width="3"/>
+<text x="54" y="351" font-size="10" fill="#333333">golden zone - the nearest 20% of slots to dispatch</text>
+</svg>

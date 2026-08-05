@@ -1,5 +1,36 @@
 # Logistics Digital Twin
 
+**The warehouse engine behind the showpiece.** Give it a rack layout and an order stream and it
+returns hard, reproducible numbers on container fill, pick travel, and order cycle time — via 3D
+bin-packing (FFD with a CP-SAT optimality check), Hungarian-algorithm slotting, and a hand-rolled
+discrete-event simulation, all on synthetic, seeded data. It is the analysis engine under two
+sibling projects:
+
+- **[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** — the hands-on,
+  game-like browser app (the flagship). A floor designed there loads straight into this engine
+  through the shared **`wt-1`** layout format ([`logitwin/layout.py`](logitwin/layout.py)) — *one
+  format, two tools* (see [Layout interchange](#layout-interchange-warehousetwin-compatible)).
+- **[decision-chain](https://github.com/Dimitres-Kisimov/decision-chain)** — one dataset run through
+  the whole distributor decision chain; its **warehouse / fulfilment stage** runs a discrete-event
+  simulation adapted from this engine.
+
+The two figures below are drawn **straight from the slotting engine's own output** — hand-built SVG,
+no plotting library, deterministic and byte-identical across re-runs (regenerate with `python -m
+logitwin.render`; committed under [`docs/img/`](docs/img/)):
+
+![Before vs after slotting on the seeded 60-slot facility: two rack maps, cells coloured by ABC velocity class, with the near-dispatch golden zone ringed. After velocity-optimized slotting the golden-zone slots are entirely A-movers (25% to 100% A-occupancy) and demand-weighted pick travel falls 44.2%.](docs/img/slotting_before_after.svg)
+
+*Before/after slotting. Legacy (alphabetical) placement scatters the fast movers; the engine's
+velocity-optimized slotting pulls A-class SKUs into the gold-ringed near-dispatch "golden zone" —
+golden-zone A-occupancy 25% → 100%, demand-weighted pick travel −44.2%. Synthetic, seeded 60-slot
+facility; exact only for the one-SKU-per-slot model.*
+
+![Velocity-slotted warehouse layout: six aisle rows of storage slots ordered near-dispatch first, each cell coloured by the ABC velocity class the optimizer assigned, with the nearest 20% of slots ringed as the golden zone; A-movers fill the golden zone.](docs/img/warehouse_layout.svg)
+
+*The slotted floor the engine produces — the same velocity palette as the live dashboard. Left
+column is nearest dispatch; the gold-ringed golden zone (nearest 20% of slots) ends up holding the
+A-class fast movers, which is exactly what minimises pick travel.*
+
 I built this to answer a very concrete warehouse question with numbers instead of opinions: **how
 much does modern practice actually beat legacy practice** on the three things a distribution centre
 lives and dies by — how full the outbound containers are, how far pickers walk, and how fast orders
@@ -97,7 +128,10 @@ python -m logitwin.sensitivity                      # print the frontier table +
 python -m logitwin.sensitivity --csv f.csv --svg f.svg   # write the deliverables
 python -m logitwin.sensitivity --json               # machine-readable
 
-# 8) containerised
+# 8) render the committed rack-layout figures (the hero SVGs) from the slotting engine's output
+python -m logitwin.render                # (re)writes docs/img/{warehouse_layout,slotting_before_after}.svg
+
+# 9) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 

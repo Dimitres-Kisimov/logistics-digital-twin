@@ -15,6 +15,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from .analysis import full_report, headline_numbers  # noqa: E402
 from .exports import build_excel, build_pdf  # noqa: E402
+from .render import write_figures  # noqa: E402
 from .sensitivity import frontier_report, to_csv, to_svg  # noqa: E402
 
 
@@ -37,6 +38,11 @@ def _write_deliverables(out_dir: Path) -> list[Path]:
     csv_path.write_text(to_csv(fr["rows"]), encoding="utf-8")
     svg_path.write_text(to_svg(fr), encoding="utf-8")
     for pth in (csv_path, svg_path):
+        print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
+
+    # Rack-layout figures (velocity-slotted floor + before/after), the same deterministic SVGs the
+    # README embeds from docs/img. Reported separately from the PDF/Excel > 10 KB size gate below.
+    for pth in write_figures(out_dir):
         print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
 
     return [pdf_path, xlsx_path]

@@ -11,7 +11,10 @@ all rights reserved.
 - **Data**: 100% synthetic and deterministic (seeded generators in `logitwin/data.py`). No real
   customer, order, or facility data is used anywhere.
 - **Graphics**: the warehouse-map view and all charts are hand-built — inline SVG / HTML Canvas in
-  the web UI, matplotlib for the PDF. No external image assets, no CDN resources, no web fonts.
+  the web UI, matplotlib for the PDF, and pure-string SVG (no plotting library) for the committed
+  figures under `docs/` (`logitwin/render.py` draws the rack-layout / before-after figures and
+  `logitwin/sensitivity.py` the frontier chart, all deterministic from the seeded engine). No
+  external image assets, no CDN resources, no web fonts.
 - **Illustrative case studies** (Würth, Schwarz / Lidl / Kaufland) are based only on publicly
   available information. This project is independent, not affiliated with and not endorsed by those
   companies, and uses no internal data from them.
