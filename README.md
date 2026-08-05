@@ -6,7 +6,7 @@ bin-packing (FFD with a CP-SAT optimality check), Hungarian-algorithm slotting, 
 discrete-event simulation, all on synthetic, seeded data. It is the analysis engine under two
 sibling projects:
 
-- **[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** — the hands-on,
+- **[WarehouseTwin](https://github.com/Dimitres-Kisimov/logistics-flow-studio)** — the hands-on,
   game-like browser app (the flagship). A floor designed there loads straight into this engine
   through the shared **`wt-1`** layout format ([`logitwin/layout.py`](logitwin/layout.py)) — *one
   format, two tools* (see [Layout interchange](#layout-interchange-warehousetwin-compatible)).
@@ -59,7 +59,7 @@ over an 8-hour shift), then runs the same demand through two operating regimes a
 This repo is the **analysis engine** of a two-repo pair: exact optimization (Hungarian-algorithm
 slotting, a CP-SAT optimality proof on the small packing instance), discrete-event simulation, and
 CSV import for real SKU catalogs. Its interactive sibling is
-**[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** — the same warehouse
+**[WarehouseTwin](https://github.com/Dimitres-Kisimov/logistics-flow-studio)** — the same warehouse
 levers (slotting, ABC velocity, pick travel, push vs pull) as a hands-on, game-like PWA you can
 play with in a browser. Use this engine for batch analysis and provable, reproducible numbers; use
 the app for intuition, teaching, and quick what-ifs. The two now share a **layout interchange
@@ -196,7 +196,7 @@ synthetic run.
 ## Layout interchange (WarehouseTwin-compatible)
 
 "One format, two tools." A warehouse floor **designed in the browser app
-[WarehouseTwin](https://github.com/Dimikissimov/logistics-flow-studio)** can be loaded, validated,
+[WarehouseTwin](https://github.com/Dimitres-Kisimov/logistics-flow-studio)** can be loaded, validated,
 and analysed by this engine — and written back — through
 [`logitwin/layout.py`](logitwin/layout.py). The format is not invented here: it mirrors
 WarehouseTwin's own `serialize()` / share-link JSON exactly (schema `wt-1`, a 1 m grid of
