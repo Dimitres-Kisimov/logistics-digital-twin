@@ -128,10 +128,15 @@ python -m logitwin.sensitivity                      # print the frontier table +
 python -m logitwin.sensitivity --csv f.csv --svg f.svg   # write the deliverables
 python -m logitwin.sensitivity --json               # machine-readable
 
-# 8) render the committed rack-layout figures (the hero SVGs) from the slotting engine's output
+# 8) labour / crew-size sensitivity sweep (see "Labour sensitivity" below)
+python -m logitwin.labour                           # print the staffing table + trade-off read
+python -m logitwin.labour --csv f.csv --svg f.svg   # write the deliverables
+python -m logitwin.labour --json                    # machine-readable
+
+# 9) render the committed rack-layout figures (the hero SVGs) from the slotting engine's output
 python -m logitwin.render                # (re)writes docs/img/{warehouse_layout,slotting_before_after}.svg
 
-# 9) containerised
+# 10) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -313,6 +318,14 @@ measurements from a real site.
   optimizer and the simulation above (it introduces no new heuristic) to sweep how far to push a
   velocity re-slot and report the efficient frontier and its knee. See
   [Slotting sensitivity](#slotting-sensitivity-how-far-to-push-a-re-slot) below.
+- **Labour sensitivity** (`logitwin/labour.py`) - the complementary lever. Where slotting
+  sensitivity holds the crew fixed and varies the *layout*, this holds the layout fixed and varies
+  the **crew size** by *reusing the same discrete-event simulation* extended to N parallel pickers
+  drawing from one shared backlog (no new heuristic, and crew = 1 reproduces the single-picker model
+  above exactly). It answers "how many pickers does the floor need?" and reports the diminishing-
+  returns knee. The crew model has **no aisle congestion / pick-face contention**, so more crew is
+  pure parallelism with diminishing queueing returns, never a physical slow-down - stated, not
+  hidden. See [Labour sensitivity](#labour-sensitivity-how-many-pickers) below.
 
 More detail and citations are in [`docs/METHODS.md`](docs/METHODS.md); the framing for a
 non-technical reader is in [`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md).
@@ -418,6 +431,57 @@ operating point is therefore the **top 70% cutoff** — near-all of the benefit 
   exact only for the one-SKU-per-slot model; real slotting adds capacity, family and congestion
   constraints this omits. This lever is distinct from the dashboard's what-if slider (which executes
   a growing prefix of the *full* plan's move sequence); both bottom out at the same optimum.
+
+## Labour sensitivity: how many pickers
+
+Slotting sensitivity answers *how you slot*; this layer answers the other operating lever - *how
+many you staff*. It holds the layout fixed and sweeps the **crew size** (parallel pickers pulling
+from one shared order backlog), **reusing the same discrete-event simulation** unchanged - the DES
+is extended to N pickers, and at a crew of 1 it reproduces the single-picker numbers reported
+everywhere else in the engine (modern mean cycle time lands back on the canonical **158.0 s**). Both
+operating regimes are swept, so the whole legacy-vs-modern story reads on one picture.
+
+Run `python -m logitwin.labour`. On the seeded 60-SKU / 101-order synthetic shift (committed frontier
+in [`docs/labour_sensitivity.csv`](docs/labour_sensitivity.csv), rendered in
+[`docs/labour_sensitivity.svg`](docs/labour_sensitivity.svg); `python -m logitwin --deliverables`
+also drops a copy in the generated `deliverables/` bundle):
+
+| Regime | Pickers | Orders | Mean cycle (s) | P95 cycle (s) | Picker utilization | Cycle-time reduction |
+| --- | --- | --- | --- | --- | --- | --- |
+| Legacy | 1 | 101 | 662.75 | 1274.67 | 81.1% | 0.0% |
+| **Legacy** | **2** | **101** | **247.74** | **442.31** | **40.6%** | **62.6%** |
+| Legacy | 3 | 101 | 231.59 | 414.35 | 27.1% | 65.1% |
+| Legacy | 4+ | 101 | 229.14 | 414.35 | ≤20.3% | 65.4% |
+| Modern | 1 | 101 | 158.00 | 338.46 | 40.6% | 0.0% |
+| **Modern** | **2** | **101** | **118.69** | **202.62** | **20.5%** | **24.9%** |
+| Modern | 3 | 101 | 115.77 | 201.62 | 13.7% | 26.7% |
+| Modern | 4+ | 101 | 115.25 | 201.62 | ≤10.3% | 27.1% |
+
+**The trade-off read, straight from the code:** a lone picker on the modern floor already holds a
+**158.0 s** mean cycle time at **40.6%** utilization; the same lone picker on the legacy floor is
+saturated at **662.75 s** and **81.1%** utilization. A **second** picker banks the bulk of the
+available responsiveness on both floors - legacy **662.75 s → 247.74 s** (62.6% of the single-picker
+cycle time, ~96% of the full-crew gain) and modern **158.0 s → 118.69 s** - after which both curves
+flatten. The recommended crew (the knee that captures ≥ 90% of the cycle-time saving) is therefore
+**2 pickers per regime** on this shift.
+
+**Honest notes:**
+
+- **The shift is arrival-bound, not labour-bound.** Every crew size completes the same **101**
+  orders inside the same makespan, so the labour lever shows up as **responsiveness** (mean / p95
+  cycle time) and **lower per-picker utilization**, *not* as a higher order-completion rate. This is
+  the direct, measured confirmation of the queueing note in the slotting-sensitivity section - the
+  single picker there was under-loaded, and here you can watch the utilization fall (modern 40.6% →
+  5.1% across the sweep) as crew is added past the knee.
+- **Total picker travel is essentially unchanged by crew size.** More pickers *parallelize* the
+  walking, they do not shorten it: legacy travel is byte-identical across every crew size, and modern
+  drifts only ~3% (6,814.6 m → 6,991.4 m) because a busier backlog packs marginally fuller pick
+  batches. The crew lever buys time, not distance.
+- **No aisle congestion is modelled.** Pickers never block one another, so adding crew can only lower
+  (or hold) cycle time - a real floor eventually congests and this model does not, so the knee is a
+  *queueing* knee, not a physical optimum. All figures are **synthetic, seeded and deterministic**
+  (the CSV and SVG are byte-identical across re-runs), teaching-scale, and reported exactly as the
+  code produces them.
 
 ## Illustrative public case studies
 

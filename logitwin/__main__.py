@@ -15,6 +15,9 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from .analysis import full_report, headline_numbers  # noqa: E402
 from .exports import build_excel, build_pdf  # noqa: E402
+from .labour import labour_report  # noqa: E402
+from .labour import to_csv as labour_to_csv  # noqa: E402
+from .labour import to_svg as labour_to_svg  # noqa: E402
 from .render import write_figures  # noqa: E402
 from .sensitivity import frontier_report, to_csv, to_svg  # noqa: E402
 
@@ -38,6 +41,17 @@ def _write_deliverables(out_dir: Path) -> list[Path]:
     csv_path.write_text(to_csv(fr["rows"]), encoding="utf-8")
     svg_path.write_text(to_svg(fr), encoding="utf-8")
     for pth in (csv_path, svg_path):
+        print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
+
+    # Labour / crew-size sensitivity: the complementary "how many pickers" frontier (same small,
+    # deterministic CSV + hand-drawn SVG treatment as the slotting sweep above; well under the
+    # 10 KB deliverable gate, so reported separately from the PDF/Excel size check).
+    lr = labour_report()
+    lab_csv_path = out_dir / "labour_sensitivity.csv"
+    lab_svg_path = out_dir / "labour_sensitivity.svg"
+    lab_csv_path.write_text(labour_to_csv(lr), encoding="utf-8")
+    lab_svg_path.write_text(labour_to_svg(lr), encoding="utf-8")
+    for pth in (lab_csv_path, lab_svg_path):
         print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
 
     # Rack-layout figures (velocity-slotted floor + before/after), the same deterministic SVGs the

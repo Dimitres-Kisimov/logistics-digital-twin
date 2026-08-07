@@ -34,6 +34,13 @@ class SimResult:
     container_utilization: float
     p95_cycle_time_s: float
     makespan_s: float
+    # Crew size the run modelled and the total picker busy-time it accumulated. Both default so the
+    # single-picker call sites and any code that reads SimResult by attribute stay unchanged; the
+    # labour sweep reads them to compute per-picker utilization. ``picker_busy_s`` is the sum of
+    # every service duration (one picker occupied for that long), so busy/(n_pickers*makespan) is
+    # the mean utilization over the active horizon.
+    n_pickers: int = 1
+    picker_busy_s: float = 0.0
 
 
 def _distance_map(assignment: dict[str, int], warehouse: Warehouse) -> dict[str, float]:
@@ -75,13 +82,22 @@ def _simulate_core(
     cartons: list[Carton],
     warehouse: Warehouse,
     orders: list[Order],
+    n_pickers: int = 1,
 ) -> SimResult:
     """Run the discrete-event picking simulation for a fixed slotting ``assignment``.
 
     The regime-agnostic core: the caller supplies the slotting (sku -> slot), the batch size
-    (1 = legacy sequential, >1 = modern batched), the container utilization to report, and a
-    ``label`` for the result. The queueing model is identical for every regime, so isolating it
-    here lets the slotting sensitivity feed in arbitrary layouts without duplicating it.
+    (1 = legacy sequential, >1 = modern batched), the container utilization to report, a ``label``
+    for the result, and the crew size ``n_pickers`` (parallel pickers drawing from one shared
+    backlog). The queueing model is identical for every regime, so isolating it here lets the
+    slotting sensitivity and the labour sweep feed in arbitrary layouts / crew sizes without
+    duplicating it.
+
+    Crew model (honest scope): ``n_pickers`` pickers pull work from a single FIFO backlog; a free
+    picker is dispatched the next order (legacy) or batch (modern) the instant it falls idle. There
+    is **no** aisle congestion or pick-face contention - pickers never block one another - so more
+    crew is pure parallelism with diminishing queueing returns, never a physical slow-down. At
+    ``n_pickers = 1`` the loop is byte-identical to the original single-picker simulation.
     """
     dist = _distance_map(assignment, warehouse)
 
@@ -93,46 +109,44 @@ def _simulate_core(
         seq += 1
 
     backlog: list[Order] = []
-    picker_busy = False
+    busy = 0  # pickers currently occupied (0 .. n_pickers)
     total_travel = 0.0
+    busy_seconds = 0.0  # summed service time across all pickers (for utilization)
     completions: list[float] = []  # cycle times
     arrival_of: dict[int, float] = {o.id: o.arrival for o in orders}
     makespan = 0.0
 
     def dispatch(now: float) -> None:
-        nonlocal picker_busy, total_travel, seq
-        if not backlog:
-            return
-        if batch_size == 1:
-            order = backlog.pop(0)
-            service, travel = _legacy_service(order, dist)
+        nonlocal busy, total_travel, busy_seconds, seq
+        # Fill every free picker from the shared backlog. With n_pickers == 1 this loop runs at
+        # most once per call, reproducing the original "one picker, one dispatch" behaviour exactly.
+        while busy < n_pickers and backlog:
+            if batch_size == 1:
+                order = backlog.pop(0)
+                service, travel = _legacy_service(order, dist)
+                payload: list[Order] = [order]
+            else:
+                payload = backlog[:batch_size]
+                del backlog[:batch_size]
+                service, travel = _modern_service(payload, dist)
             total_travel += travel
-            picker_busy = True
-            heapq.heappush(pq, (now + service, seq, 1, [order]))
-            seq += 1
-        else:
-            batch = backlog[:batch_size]
-            del backlog[:batch_size]
-            service, travel = _modern_service(batch, dist)
-            total_travel += travel
-            picker_busy = True
-            heapq.heappush(pq, (now + service, seq, 1, batch))
+            busy_seconds += service
+            busy += 1
+            heapq.heappush(pq, (now + service, seq, 1, payload))
             seq += 1
 
     while pq:
         now, _, kind, payload = heapq.heappop(pq)
         if kind == 0:  # ARRIVAL
             backlog.append(payload)  # type: ignore[arg-type]
-            if not picker_busy:
-                dispatch(now)
+            dispatch(now)
         else:  # PICK_DONE
             batch = payload  # type: ignore[assignment]
             for o in batch:  # type: ignore[union-attr]
                 completions.append(now - arrival_of[o.id])
             makespan = max(makespan, now)
-            picker_busy = False
-            if backlog:
-                dispatch(now)
+            busy -= 1
+            dispatch(now)
 
     n = len(completions)
     mean_cycle = sum(completions) / n if n else 0.0
@@ -151,6 +165,8 @@ def _simulate_core(
         container_utilization=utilization,
         p95_cycle_time_s=p95,
         makespan_s=makespan,
+        n_pickers=n_pickers,
+        picker_busy_s=busy_seconds,
     )
 
 
@@ -187,19 +203,22 @@ def simulate_assignment(
     batch_size: int = MODERN_BATCH_SIZE,
     utilization: float | None = None,
     label: str = "what-if",
+    n_pickers: int = 1,
 ) -> SimResult:
-    """Simulate an arbitrary slotting ``assignment`` under the modern batched-pick regime.
+    """Simulate an arbitrary slotting ``assignment`` under a chosen batch size and crew size.
 
-    Used by the slotting sensitivity sweep to read throughput off a layout that is neither the pure
-    legacy nor the fully optimized one. Packing (hence ``utilization``) is independent of slotting,
-    so it defaults to the same FFD fill the modern regime reports; only the slotting varies across
-    the sweep.
+    Used by the slotting sensitivity sweep (which varies the layout at a fixed single picker) and by
+    the labour sweep (which fixes the layout and varies ``n_pickers``). Packing (hence
+    ``utilization``) is independent of slotting, so it defaults to the same FFD fill the modern
+    regime reports; only the slotting / crew size varies across a sweep.
     """
     if utilization is None:
         utilization = (
             ffd_pack(cartons).fill_rate if batch_size != 1 else naive_pack(cartons).fill_rate
         )
-    return _simulate_core(label, assignment, batch_size, utilization, cartons, warehouse, orders)
+    return _simulate_core(
+        label, assignment, batch_size, utilization, cartons, warehouse, orders, n_pickers=n_pickers
+    )
 
 
 def simulation_report(
