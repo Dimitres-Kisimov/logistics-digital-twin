@@ -136,7 +136,12 @@ python -m logitwin.labour --json                    # machine-readable
 # 9) render the committed rack-layout figures (the hero SVGs) from the slotting engine's output
 python -m logitwin.render                # (re)writes docs/img/{warehouse_layout,slotting_before_after}.svg
 
-# 10) containerised
+# 10) pick-path routing comparison: heuristic routes vs the exact optimum (see "Pick-path routing" below)
+python -m logitwin.routing                          # print the routing table + trade-off read
+python -m logitwin.routing --csv f.csv --svg f.svg  # write the deliverables
+python -m logitwin.routing --json                   # machine-readable
+
+# 11) containerised
 docker compose up        # serves the app on port 5000 via gunicorn
 ```
 
@@ -326,6 +331,14 @@ measurements from a real site.
   returns knee. The crew model has **no aisle congestion / pick-face contention**, so more crew is
   pure parallelism with diminishing queueing returns, never a physical slow-down - stated, not
   hidden. See [Labour sensitivity](#labour-sensitivity-how-many-pickers) below.
+- **Pick-path routing** (`logitwin/routing.py`) - the missing *routing* lever. Everywhere else pick
+  travel is a per-slot round-trip proxy; this layer imposes an explicit single-block aisle geometry
+  on the layout's own `(aisle, bay)` indices and routes each seeded order under four classic
+  heuristics (**return**, **s-shape / traversal**, **midpoint**, **largest-gap**) plus an **exact
+  optimum** (brute force over pick orderings on the aisle-graph metric). Every heuristic is reported
+  as a percentage above that optimum, which is the honest yardstick - no heuristic can beat it, and
+  the test suite checks that per order. See
+  [Pick-path routing](#pick-path-routing-which-policy-and-how-close-to-optimal) below.
 
 More detail and citations are in [`docs/METHODS.md`](docs/METHODS.md); the framing for a
 non-technical reader is in [`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md).
@@ -482,6 +495,63 @@ flatten. The recommended crew (the knee that captures ≥ 90% of the cycle-time 
   *queueing* knee, not a physical optimum. All figures are **synthetic, seeded and deterministic**
   (the CSV and SVG are byte-identical across re-runs), teaching-scale, and reported exactly as the
   code produces them.
+
+## Pick-path routing: which policy, and how close to optimal
+
+Slotting decides *where* SKUs sit; **routing** decides *how the picker walks the order once they're
+there* — and it is a lever in its own right, one of the canonical problems in order-picking (de
+Koster, Le-Duc & Roodbergen 2007). Everywhere else in this engine pick travel is a per-slot
+*round-trip proxy* (a single scalar distance to dispatch), which is all the slotting objective
+needs; the layout interchange even flags the gap ("no aisle routing or rack entry points"). This
+layer fills it. It imposes an explicit **single-block** aisle geometry on the layout's own
+`(aisle, bay)` slot indices — parallel pick aisles, a front and a back cross-aisle, one depot at the
+front-left corner, a documented 5.0 m aisle pitch and 1.2 m bay depth — and routes **every order in
+the seeded stream** under four classic heuristics and one exact optimum. It reuses the engine
+unchanged: the same `make_warehouse` geometry, the same legacy/optimized slotting assignments, the
+same order stream; no new slotting or simulation heuristic is introduced.
+
+Run `python -m logitwin.routing`. On the seeded 60-SKU / 101-order shift (committed table in
+[`docs/routing_comparison.csv`](docs/routing_comparison.csv), rendered in
+[`docs/routing_comparison.svg`](docs/routing_comparison.svg); `python -m logitwin --deliverables`
+also drops a copy in the generated `deliverables/` bundle):
+
+| Slotting | Policy | Mean route (m/order) | Above optimum |
+| --- | --- | --- | --- |
+| Optimized | **return** | **27.46** | **+3.03%** |
+| Optimized | largest-gap | 28.13 | +5.53% |
+| Optimized | s-shape (traversal) | 28.55 | +7.13% |
+| Optimized | midpoint | 29.59 | +11.01% |
+| Optimized | **optimal (exact)** | **26.65** | **0.00%** |
+| Legacy | return | 51.39 | +3.15% |
+| Legacy | optimal (exact) | 49.83 | 0.00% |
+
+**The read, straight from the code:** the shift is **low pick density** (mean ~2.9 pick faces per
+order over six aisles), and at low density the **return** route is closest to the exact optimum
+(**+3.0%** on the optimized layout) while **traversal / s-shape is wasteful** (**+7.1%**) because it
+walks whole aisles to collect one or two picks — the textbook low-density result (Hall 1993;
+Petersen & Aase 2004). So `return` is the right default *here*; on a denser pick list the ranking
+would flip toward traversal, which this same tool would show. The two levers also interact:
+**holding the policy fixed, the velocity-optimized layout routes ~46% shorter than the legacy
+layout** (return 51.4 m → 27.5 m/order), the routing-level echo of the slotting story.
+
+The **exact optimum** is what makes this honest rather than hand-wavy. It is solved by brute force
+over pick orderings on the aisle-graph metric — a single order has only a handful of distinct pick
+faces, so it is tractable and *provably* the minimum for this metric model (equivalently the
+Ratliff-Rosenthal single-block optimum). Every heuristic is reported as a percentage **above** it,
+and a heuristic can never beat it — a guarantee the test suite verifies **per order** on both
+layouts, alongside a check that each route actually passes every pick. It is the same
+measure-don't-assert stance the packing benchmark takes with CP-SAT.
+
+**Honest notes:**
+
+- **Single-block layout, corner depot.** Aisle pitch (5.0 m) and bay depth (1.2 m) are **modelled
+  constants, not measured** from a real building; rack level is vertical and does not change the
+  floor tour, so pick faces collapse to distinct `(aisle, bay)` floor points.
+- **No aisle congestion, one-way flow, or middle cross-aisle** is modelled; a real floor has all
+  three. The optimum is exact **only for this metric model** — it is not a claim about a real
+  multi-block facility.
+- All figures are **synthetic, seeded and deterministic** (the CSV and SVG are byte-identical across
+  re-runs), teaching-scale, and reported exactly as the code produces them.
 
 ## Illustrative public case studies
 

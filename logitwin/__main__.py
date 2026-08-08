@@ -19,6 +19,9 @@ from .labour import labour_report  # noqa: E402
 from .labour import to_csv as labour_to_csv  # noqa: E402
 from .labour import to_svg as labour_to_svg  # noqa: E402
 from .render import write_figures  # noqa: E402
+from .routing import routing_report  # noqa: E402
+from .routing import to_csv as routing_to_csv  # noqa: E402
+from .routing import to_svg as routing_to_svg  # noqa: E402
 from .sensitivity import frontier_report, to_csv, to_svg  # noqa: E402
 
 
@@ -52,6 +55,17 @@ def _write_deliverables(out_dir: Path) -> list[Path]:
     lab_csv_path.write_text(labour_to_csv(lr), encoding="utf-8")
     lab_svg_path.write_text(labour_to_svg(lr), encoding="utf-8")
     for pth in (lab_csv_path, lab_svg_path):
+        print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
+
+    # Pick-path routing comparison: the routing lever (heuristic routes vs the exact optimum) on
+    # both layouts (same small, deterministic CSV + hand-drawn SVG treatment as the sweeps above;
+    # well under the 10 KB deliverable gate, so reported separately from the PDF/Excel size check).
+    rr = routing_report()
+    route_csv_path = out_dir / "routing_comparison.csv"
+    route_svg_path = out_dir / "routing_comparison.svg"
+    route_csv_path.write_text(routing_to_csv(rr), encoding="utf-8")
+    route_svg_path.write_text(routing_to_svg(rr), encoding="utf-8")
+    for pth in (route_csv_path, route_svg_path):
         print(f"[ok] wrote {pth} ({pth.stat().st_size / 1024:.1f} KB)")
 
     # Rack-layout figures (velocity-slotted floor + before/after), the same deterministic SVGs the

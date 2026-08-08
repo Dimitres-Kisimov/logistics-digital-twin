@@ -1,0 +1,11 @@
+slotting,policy,n_orders,total_route_m,mean_route_m,pct_above_optimal
+legacy,return,101,5190.8,51.39,3.15
+legacy,s-shape,101,5274.8,52.23,4.82
+legacy,midpoint,101,5367.2,53.14,6.65
+legacy,largest-gap,101,5145.2,50.94,2.24
+legacy,optimal,101,5032.4,49.83,0.00
+optimized,return,101,2773.6,27.46,3.03
+optimized,s-shape,101,2884.0,28.55,7.13
+optimized,midpoint,101,2988.4,29.59,11.01
+optimized,largest-gap,101,2840.8,28.13,5.53
+optimized,optimal,101,2692.0,26.65,0.00
